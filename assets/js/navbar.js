@@ -28,3 +28,12 @@ function show(index){
                   }
          })
 }
+
+function auth(authorization){
+         if (authorization == 'false');{
+                  model()
+         }
+}
+
+
+

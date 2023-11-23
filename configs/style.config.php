@@ -32,4 +32,12 @@
           .text {
                    font-family: 'News Cycle', sans-serif;
           }
+
+          #modalHolder {
+                   transition: all 4s ease-in-out;
+          }
+
+          #modalHolder.active{
+                  display: none !important;
+          }
  </style>
