@@ -205,4 +205,4 @@
 
 
 <script src="./assets/js/navbar.js"></script>
-<script src="./errors/modal/index.js"></script>
+<!-- <script src="./errors/modal/index.js"></script> -->
