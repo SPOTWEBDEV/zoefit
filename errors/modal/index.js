@@ -1,6 +1,11 @@
+import { loginComponent } from '../../components/login/index.js'
+import { regComponent } from '../../components/registeration/index.js'
 
-         function model() {
-                  let body = document.querySelector('body')
+
+
+let body = document.querySelector('body')
+export function model() {
+                  
                   body.insertAdjacentHTML("beforeend", `<div id="modalHolder" class="relative z-10" aria-labelledby="modal-title" role="dialog" aria-modal="true">
 
                   <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
@@ -34,16 +39,44 @@
 
 
 
-                  console.log();
+                  
 
                   document.querySelector('#cancel').addEventListener('click',()=>{
-                           document.querySelector('#modalHolder').classList.add('active')
+                           document.querySelector('#modalHolder').remove()
                   })
                   document.querySelector('#next').addEventListener('click',()=>{
+                           document.querySelector('#modalHolder').remove()
                            modalLogin()
                   })
 
          }
+
+
 function modalLogin() {
-  alert('welcome')
+  body.insertAdjacentHTML("beforeend", loginComponent);
+  const register = document.querySelector('#register');
+  
+  if (register){
+    register.onclick = () => {
+      document.querySelector('#modalHolder').remove();
+      setTimeout(() => {
+        body.insertAdjacentHTML("beforeend", regComponent)
+      }, 1000)
+    }
+  }
+
+  const login = document.querySelector('#login');
+  if (login){
+    login.onclick = () => {
+      document.querySelector('#modalHolder').remove();
+      setTimeout(() => {
+        body.insertAdjacentHTML("beforeend", loginComponent)
+      }, 1000)
+    }
+  }
+  
+
+
 }
+
+

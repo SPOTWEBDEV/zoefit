@@ -6,6 +6,14 @@
   #optionsHolder.active {
     display: block;
   }
+
+  #mobile-menu {
+    display: none;
+  }
+
+  #mobile-menu.active {
+    display: block;
+  }
 </style>
 
 <nav class="bg-gray-800">
@@ -13,7 +21,7 @@
     <div class="relative flex h-16 items-center justify-between">
       <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
         <!-- Mobile menu button-->
-        <button type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
+        <button id="mobile-menu-btn" type="button" class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
           <span class="absolute -inset-0.5"></span>
           <span class="sr-only">Open main menu</span>
           <!--
@@ -125,7 +133,7 @@
               <div id="optionsHolder" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
                 <div class="py-1" role="none">
                   <!-- Active: "bg-gray-100 text-gray-900", Not Active: "text-gray-700" -->
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Account Settings
 
                     <?php if ($authorization == 'false') { ?>
@@ -135,7 +143,7 @@
 
                   </a>
 
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Change Password
 
                     <?php if ($authorization == 'false') { ?>
@@ -145,7 +153,7 @@
 
                   </a>
 
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Verification
 
                     <?php if ($authorization == 'false') { ?>
@@ -155,7 +163,7 @@
 
                   </a>
 
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Delete Account
 
                     <?php if ($authorization == 'false') { ?>
@@ -164,7 +172,7 @@
 
 
                   </a>
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Payment Settings
 
                     <?php if ($authorization == 'false') { ?>
@@ -173,7 +181,7 @@
 
 
                   </a>
-                  <a onclick="auth(<?php echo $authorization ?>)" href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between " role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Data Privacy
                   </a>
                   <form method="POST" action="#" role="none">
@@ -196,13 +204,80 @@
     <div class="space-y-1 px-2 pb-3 pt-2">
       <!-- Current: "bg-gray-900 text-white", Default: "text-gray-300 hover:bg-gray-700 hover:text-white" -->
       <a href="#" class="bg-gray-900 text-white block rounded-md px-3 py-2 text-base font-medium" aria-current="page">Dashboard</a>
-      <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Team</a>
-      <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Projects</a>
-      <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Calendar</a>
+      <div>
+        <button id="options" type="button" class="inline-flex w-full hover:bg-gray-700  gap-x-1.5 rounded-md  px-3 py-2 text-sm  text-white     w-full " id="menu-button" aria-expanded="true" aria-haspopup="true">
+          Services
+          <svg class="-mr-1 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+      <div id="optionsHolder" class="absolute left-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+        <div class="py-1" role="none">
+          <!-- Active: "bg-gray-100 text-gray-900", Not Active: "text-gray-700" -->
+          <a href="#" class="text-gray-700 block px-4 py-2 text-sm" role="menuitem" tabindex="-1" id="menu-item-0">Airtime Topup</a>
+          <a href="#" class="text-gray-700 block px-4 py-2 text-sm" role="menuitem" tabindex="-1" id="menu-item-1">Data Bundle</a>
+
+        </div>
+      </div>
+      <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Wallet</a>
+      <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white block rounded-md px-3 py-2 text-base font-medium">Transcations</a>
     </div>
   </div>
 </nav>
 
+<script type="module" src="./errors/modal/index.js"></script>
+<script type="module">
+  const authorization = "<?php echo $authorization ?>";
+  import {
+    model
+  } from './errors/modal/index.js'
+  const options = document.querySelectorAll('#options');
+  const optionsHolder = document.querySelectorAll('#optionsHolder');
+  options.forEach((el, index) => {
+    el.onclick = () => {
 
-<script src="./assets/js/navbar.js"></script>
-<!-- <script src="./errors/modal/index.js"></script> -->
+      if (el.classList.contains('click')) {
+        optionsHolder[index].classList.remove('active')
+        el.classList.remove('click')
+      } else {
+
+        el.classList.add('click')
+        show(index)
+      }
+
+    }
+
+  })
+
+  function show(index) {
+    optionsHolder.forEach((el, theindex) => {
+      if (index == theindex) {
+        el.classList.add('active')
+      }
+    })
+  }
+
+  let auth = document.querySelectorAll('.auth');
+  auth.forEach(el => {
+    el.onclick = () => {
+      if (authorization == 'false');
+      {
+        model()
+      }
+    }
+  })
+
+  let mobileMenuBtn = document.querySelector('#mobile-menu-btn');
+  mobileMenuBtn.onclick = () => {
+
+
+    if (document.querySelector('#mobile-menu').classList.contains('active')) {
+      document.querySelector('#mobile-menu').classList.remove('active');
+    } else {
+      document.querySelector('#mobile-menu').classList.add('active');
+    }
+
+
+  }
+</script>
