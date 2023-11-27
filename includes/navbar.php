@@ -1,3 +1,6 @@
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 <style>
   #optionsHolder {
     display: none;
@@ -108,7 +111,7 @@
                    -->
           <div id="optionsHolder" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
             <!-- Active: "bg-gray-100", Not Active: "" -->
-            <a href="#" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-0">Your
+            <a href="../user/profile/" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-0">Your
               Profile</a>
             <div class="relative inline-block text-left">
               <div>
@@ -136,7 +139,7 @@
                   <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Account Settings
 
-                    <?php if ($authorization == 'false') { ?>
+                    <?php if (!isset($_SESSION['userLogin'])) { ?>
                       <i class="bi bi-file-lock text-lg"></i>
                     <?php } ?>
 
@@ -146,7 +149,7 @@
                   <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Change Password
 
-                    <?php if ($authorization == 'false') { ?>
+                    <?php if (!isset($_SESSION['userLogin'])) { ?>
                       <i class="bi bi-file-lock text-lg"></i>
                     <?php } ?>
 
@@ -156,7 +159,7 @@
                   <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Verification
 
-                    <?php if ($authorization == 'false') { ?>
+                    <?php if (!isset($_SESSION['userLogin'])) { ?>
                       <i class="bi bi-file-lock text-lg"></i>
                     <?php } ?>
 
@@ -166,7 +169,7 @@
                   <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Delete Account
 
-                    <?php if ($authorization == 'false') { ?>
+                    <?php if (!isset($_SESSION['userLogin'])) { ?>
                       <i class="bi bi-file-lock text-lg"></i>
                     <?php } ?>
 
@@ -175,7 +178,7 @@
                   <a href="#" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Payment Settings
 
-                    <?php if ($authorization == 'false') { ?>
+                    <?php if (!isset($_SESSION['userLogin'])) { ?>
                       <i class="bi bi-file-lock text-lg"></i>
                     <?php } ?>
 
@@ -226,12 +229,10 @@
   </div>
 </nav>
 
-<script type="module" src="./errors/modal/index.js"></script>
-<script type="module">
+
+<script>
   const authorization = "<?php echo $authorization ?>";
-  import {
-    model
-  } from './errors/modal/index.js'
+  console.log();
   const options = document.querySelectorAll('#options');
   const optionsHolder = document.querySelectorAll('#optionsHolder');
   options.forEach((el, index) => {
@@ -258,20 +259,10 @@
     })
   }
 
-  let auth = document.querySelectorAll('.auth');
-  auth.forEach(el => {
-    el.onclick = () => {
-      if (authorization == 'false');
-      {
-        model()
-      }
-    }
-  })
+
 
   let mobileMenuBtn = document.querySelector('#mobile-menu-btn');
   mobileMenuBtn.onclick = () => {
-
-
     if (document.querySelector('#mobile-menu').classList.contains('active')) {
       document.querySelector('#mobile-menu').classList.remove('active');
     } else {

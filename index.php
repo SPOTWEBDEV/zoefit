@@ -1,8 +1,10 @@
 <?php
 
+// include('./configs/style.config.php');
+include('./configs/database.php');
 include('./configs/style.config.php');
+// include('./configs/clients/authorization.php');
 
-include('./configs/clients/authorization.php')
 
 
 ?>
@@ -17,7 +19,7 @@ include('./configs/clients/authorization.php')
          <script src="https://cdn.tailwindcss.com"></script>
          <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
          <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+         
 </head>
 
 <body>
@@ -30,9 +32,9 @@ include('./configs/clients/authorization.php')
                            <div class="mx-auto grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 sm:gap-y-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
                                     <div class="lg:pr-8 lg:pt-4">
                                              <div class="lg:max-w-lg">
-                                                      <h2 class="text-base  leading-7 text-white text-indigo-600">Zoefit</h2>
-                                                      <p class="mt-2 text-3xl  tracking-tight text-white sm:text-4xl">Zoefit Buy In Style</p>
-                                                      <p class="mt-6 text-lg leading-8 text-white text-gray-600">Are you tired of running out of data at the most inconvenient times? Look no further – ZOEFIT is your go-to destination for hassle-free data bundle purchases, ensuring you stay connected whenever and wherever you need it.</p>
+                                                      <h2 class="text-base  leading-7 text-white text-indigo-600">zoefeeds</h2>
+                                                      <p class="mt-2 text-3xl  tracking-tight text-white sm:text-4xl">zoefeeds Buy In Style</p>
+                                                      <p class="mt-6 text-lg leading-8 text-white text-gray-600">Are you tired of running out of data at the most inconvenient times? Look no further – zoefeeds is your go-to destination for hassle-free data bundle purchases, ensuring you stay connected whenever and wherever you need it.</p>
                                                       <dl class="mt-10 max-w-xl space-y-8 text-base leading-7 text-white lg:max-w-none">
                                                                <div class="relative pl-9">
                                                                         <dt class="inline  text-white">
@@ -41,7 +43,7 @@ include('./configs/clients/authorization.php')
                                                                                  </svg>
                                                                                  Airtime Topup
                                                                         </dt>
-                                                                        <dd class="inline">In a world that moves at the speed of communication, having a reliable source for airtime top-ups is essential. Enter ZOEFIT – your destination for seamless and instant airtime recharges, ensuring you're always connected with those who matter.</dd>
+                                                                        <dd class="inline">In a world that moves at the speed of communication, having a reliable source for airtime top-ups is essential. Enter zoefeeds – your destination for seamless and instant airtime recharges, ensuring you're always connected with those who matter.</dd>
                                                                </div>
                                                                <div class="relative pl-9">
                                                                         <dt class="inline  text-white">
@@ -50,13 +52,13 @@ include('./configs/clients/authorization.php')
                                                                                  </svg>
                                                                                  Data Bundle
                                                                         </dt>
-                                                                        <dd class="inline">In a world where connectivity is key, ZOEFIT is your gateway to affordable and reliable data bundles. Say goodbye to expensive data plans and hello to uninterrupted connectivity without breaking the bank.</dd>
+                                                                        <dd class="inline">In a world where connectivity is key, zoefeeds is your gateway to affordable and reliable data bundles. Say goodbye to expensive data plans and hello to uninterrupted connectivity without breaking the bank.</dd>
                                                                </div>
 
                                                       </dl>
                                              </div>
                                     </div>
-                                    <img src="https://tailwindui.com/img/component-images/dark-project-app-screenshot.png" alt="Product screenshot" class="w-[48rem] max-w-none rounded-xl shadow-xl ring-1 ring-gray-400/10 sm:w-[57rem] md:-ml-4 lg:-ml-0" width="2432" height="1442">
+                                    <img src="./assets/image/img3.jpeg" alt="Product screenshot" class="rounded-xl shadow-xl ring-1 ring-gray-400/10 w-[350px]" width="400" height="400">
                            </div>
                   </div>
          </div>
@@ -66,7 +68,7 @@ include('./configs/clients/authorization.php')
                   <div class="mx-auto max-w-7xl px-6 lg:px-8">
                            <div class="mx-auto max-w-2xl lg:text-center">
                                     <h2 class="text-4xl leading-7 text-white">service</h2>
-                                    <!-- <p class="mt-2 text-2xl  tracking-tight text-gray-900 sm:text-4xl">Zoefit's services include facilitating seamless maritime purchases for clients, ensuring efficient and reliable transactions in the maritime industry. </p> -->
+                                    <!-- <p class="mt-2 text-2xl  tracking-tight text-gray-900 sm:text-4xl">zoefeeds's services include facilitating seamless maritime purchases for clients, ensuring efficient and reliable transactions in the maritime industry. </p> -->
 
                            </div>
                            <div class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
@@ -78,7 +80,7 @@ include('./configs/clients/authorization.php')
                                                                </div>
                                                                Join the Fun Today
                                                       </dt>
-                                                      <dd class="mt-2 text-base leading-7 text-gray-600">Don't miss out on the chance to turn your routine data or airtime purchase into an exhilarating win. Head over to ZOEFIT, top up your data or airtime, and automatically enter the raffle competition. It's that easy!</dd>
+                                                      <dd class="mt-2 text-base leading-7 text-gray-600">Don't miss out on the chance to turn your routine data or airtime purchase into an exhilarating win. Head over to zoefeeds, top up your data or airtime, and automatically enter the raffle competition. It's that easy!</dd>
                                              </div>
                                              <div class="relative pl-16 py-3 bg-white rounded-lg" style="box-sizing:border-box;">
                                                       <dt class="text-base font-semibold leading-7 text-gray-900">
@@ -87,7 +89,7 @@ include('./configs/clients/authorization.php')
                                                                </div>
                                                                Airtime Topup
                                                       </dt>
-                                                      <dd class="mt-2 text-base leading-7 text-gray-600">In a world that moves at the speed of communication, having a reliable source for airtime top-ups is essential. Enter ZOEFIT – your destination for seamless and instant airtime recharges, ensuring you're always connected with those who matter.</dd>
+                                                      <dd class="mt-2 text-base leading-7 text-gray-600">In a world that moves at the speed of communication, having a reliable source for airtime top-ups is essential. Enter zoefeeds – your destination for seamless and instant airtime recharges, ensuring you're always connected with those who matter.</dd>
                                              </div>
                                              <div class="relative pl-16 py-3 bg-white rounded-lg" style="box-sizing:border-box;">
                                                       <dt class="text-base font-semibold leading-7 text-gray-900">
@@ -96,7 +98,7 @@ include('./configs/clients/authorization.php')
                                                                </div>
                                                                Data Bundle
                                                       </dt>
-                                                      <dd class="mt-2 text-base leading-7 text-gray-600"> In a world where connectivity is key, ZOEFIT is your gateway to affordable and reliable data bundles. Say goodbye to expensive data plans and hello to uninterrupted connectivity without breaking the bank.</dd>
+                                                      <dd class="mt-2 text-base leading-7 text-gray-600"> In a world where connectivity is key, zoefeeds is your gateway to affordable and reliable data bundles. Say goodbye to expensive data plans and hello to uninterrupted connectivity without breaking the bank.</dd>
                                              </div>
                                              <div class="relative pl-16 py-3 bg-white rounded-lg" style="box-sizing:border-box;">
                                                       <dt class="text-base font-semibold leading-7 text-gray-900">
@@ -121,7 +123,7 @@ include('./configs/clients/authorization.php')
                            <img class="mx-auto h-12" src="https://tailwindui.com/img/logos/workcation-logo-indigo-600.svg" alt="">
                            <figure class="mt-10">
                                     <blockquote class="text-center text-xl  leading-8 text-gray-900 sm:text-2xl sm:leading-9">
-                                             <p class="text">“Zoefit has been a game-changer for me in managing my mobile expenses. This online platform has revolutionized the way I buy airtime and data, offering a seamless and convenient experience. With Zoefit, I can effortlessly recharge my phone and purchase data bundles with just a few clicks, saving me time and effort. The user-friendly interface and reliable service have made it my go-to platform for all my mobile needs. Thanks to Zoefit, staying connected has never been easier.”</p>
+                                             <p class="text">“zoefeeds has been a game-changer for me in managing my mobile expenses. This online platform has revolutionized the way I buy airtime and data, offering a seamless and convenient experience. With zoefeeds, I can effortlessly recharge my phone and purchase data bundles with just a few clicks, saving me time and effort. The user-friendly interface and reliable service have made it my go-to platform for all my mobile needs. Thanks to zoefeeds, staying connected has never been easier.”</p>
                                     </blockquote>
                                     <figcaption class="mt-10">
                                              <img class="mx-auto h-10 w-10 rounded-full" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="">
@@ -144,7 +146,7 @@ include('./configs/clients/authorization.php')
                   <div class="mx-auto max-w-7xl px-6 lg:px-8">
                            <div class="mx-auto">
                                     <h2 class="text-4xl font-bold tracking-tight text-white sm:text-6xl">Work with us</h2>
-                                    <p class="mt-6 text-lg leading-8 text-gray-300">Experience the convenience of staying connected with Zoefit! With us, your online journey for airtime and data purchases becomes effortless. Navigate our user-friendly website to quickly and securely buy airtime and data, ensuring you're always in control of your connectivity needs. Join Zoefit for a seamless online experience that puts the power of communication at your fingertips.</p>
+                                    <p class="mt-6 text-lg leading-8 text-gray-300">Experience the convenience of staying connected with zoefeeds! With us, your online journey for airtime and data purchases becomes effortless. Navigate our user-friendly website to quickly and securely buy airtime and data, ensuring you're always in control of your connectivity needs. Join zoefeeds for a seamless online experience that puts the power of communication at your fingertips.</p>
                            </div>
                            <div class="mx-auto mt-10 max-w-2xl lg:mx-0 lg:max-w-none">
 

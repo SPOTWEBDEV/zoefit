@@ -1,27 +1,12 @@
 <?php
-$authorization = 'false';
-if(isset($_SESSION['userLogin'])){
-    $authorization  = 'true';    
+session_start();
+
+if(isset($_SESSION['userLogin'])){    
+    $id = $_SESSION['userLogin'];
+    
+}else{
+     header('location: http://localhost/zoefit/errors/ERROR-404/');
 }
-
-
-if (isset($_POST['login'])) {
-    $phone = $_POST['phone'];
-    $password = $_POST['password'];
-
-    if (!empty($phone) && !empty($password)) {
-        $select = mysqli_query($connection, "SELECT * FROM `clients` WHERE `phone`='$phone' AND `password`='$password'");
-
-        if (mysqli_num_rows($select)) {
-            while($row=mysqli_fetch_assoc($select)){
-                $id = $row['id'];
-                $_SESSION['userLogin'] = $id;
-            }
-        } else {
-        
-        }
-    }
-}
-
 
 ?>
+
