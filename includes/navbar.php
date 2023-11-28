@@ -1,5 +1,3 @@
-
-
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 <style>
   #optionsHolder {
@@ -73,8 +71,8 @@
               </div>
             </div>
             <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Wallet</a>
-            <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Blog</a>
-            <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Contact</a>
+            <a href="http://localhost/zoefit/blog/" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Blog</a>
+            <a href="http://localhost/zoefit/contact/" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Contact</a>
 
 
           </div>
@@ -111,8 +109,10 @@
                    -->
           <div id="optionsHolder" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
             <!-- Active: "bg-gray-100", Not Active: "" -->
-            <a href="../user/profile/" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-0">Your
-              Profile</a>
+            <a href="../user/profile/" class="block px-4 py-2 text-sm text-gray-700 w-full flex items-center justify-between" role="menuitem" tabindex="-1" id="user-menu-item-0">Your
+              Profile <?php if (!isset($_SESSION['userLogin'])) { ?>
+                <i class="bi bi-file-lock text-lg"></i>
+              <?php } ?></a>
             <div class="relative inline-block text-left">
               <div>
                 <button id="options" type=" button" class="inline-flex w-full justify-center gap-x-1.5 rounded-md  px-4 py-2 text-sm  text-gray-900   hover:bg-gray-50 w-full" id="menu-button" aria-expanded="true" aria-haspopup="true">
@@ -194,8 +194,10 @@
               </div>
             </div>
 
-            <a href="#" class="block px-4 py-2 text-sm text-gray-700" role="menuitem" tabindex="-1" id="user-menu-item-2">Sign
-              out</a>
+            <a href="#" class="block px-4 py-2 text-sm text-gray-700 flex items-center justify-between" role="menuitem" tabindex="-1" id="user-menu-item-2">Sign
+              out <?php if (!isset($_SESSION['userLogin'])) { ?>
+                <i class="bi bi-file-lock text-lg"></i>
+              <?php } ?></a>
           </div>
         </div>
       </div>

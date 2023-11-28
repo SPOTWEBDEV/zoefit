@@ -40,6 +40,10 @@
          #modalHolder.active {
                  display: none !important;
          }
+
+         .bg{
+                background: red;
+         }
  </style>
  <script src="https://cdn.tailwindcss.com"></script>
  <script>

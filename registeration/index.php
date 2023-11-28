@@ -52,7 +52,7 @@ include('../configs/style.config.php');
                                       }
                                     </script>';
                            } else {
-                                    $insert = mysqli_query($conn, "INSERT INTO `clients`(`id`, `name`, `email`, `phone`, `password`) VALUES ('','$name','$email','$phone','$hash')");
+                                    $insert = mysqli_query($conn, "INSERT INTO `clients`(`id`, `name`, `email`, `phone`, `password`) VALUES ('','$name','$email','$phone','$password')");
 
                                     if ($insert) {
                                              $id = $conn->insert_id;
