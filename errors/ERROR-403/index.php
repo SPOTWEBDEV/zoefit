@@ -10,16 +10,6 @@
 
 <body>
   <div class="relative z-10" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <!--
-    Background backdrop, show/hide based on modal state.
-
-    Entering: "ease-out duration-300"
-      From: "opacity-0"
-      To: "opacity-100"
-    Leaving: "ease-in duration-200"
-      From: "opacity-100"
-      To: "opacity-0"
-  -->
     <div style="background:#0A96ADff !important;" class="fixed inset-0  bg-opacity-75 transition-opacity"></div>
 
     <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
@@ -50,9 +40,10 @@
               </div>
             </div>
           </div>
-          <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-            <a href=""><button type="button" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Login</button></a>
-            <button type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto">Cancel</button>
+          <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-x-6">
+            <a href="../../registeration/"><button type="button" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Registeration</button></a>
+            <a href="http://localhost/zoefit/login/"><button type="button" class="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto">Login</button></a>
+
           </div>
         </div>
       </div>

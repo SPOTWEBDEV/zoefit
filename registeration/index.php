@@ -3,9 +3,18 @@
 
 include('../configs/database.php');
 include('../configs/style.config.php');
+include('../configs/style.config.php');
+       //   header('Location: http://localhost/zoefit');
 
+$url = "";
+if(isset($_SESSION['url'])){
+       $url =  $_SESSION['url'];
+       
+}else{
+       $url = "http://localhost/zoefit/";
 
-
+}
+$location = 'location:' . $url;
 
 
 ?>
@@ -57,7 +66,9 @@ include('../configs/style.config.php');
                                     if ($insert) {
                                              $id = $conn->insert_id;
                                              $_SESSION['userLogin'] = $id;
-                                             header('location:../index.php');
+                                          
+                                          echo "<script>alert('welcome')</script>";
+                                          
                                     } else {
                                              echo '<script>
                                       window.onload = function(){
@@ -86,7 +97,7 @@ include('../configs/style.config.php');
                                              </div>
 
                                              <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                                                      <form class="space-y-6" action="#" method="POST">
+                                                      <form class="space-y-6"  method="POST">
                                                                <div>
                                                                         <label for="email" class="block text-sm  leading-6 text-gray-900">Name</label>
                                                                         <div class="mt-2">
