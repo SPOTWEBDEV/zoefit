@@ -3,9 +3,18 @@
 
 include('../configs/database.php');
 include('../configs/style.config.php');
+include('../configs/style.config.php');
+       //   header('Location: http://localhost/zoefit');
 
+$url = "";
+if(isset($_SESSION['url'])){
+       $url =  $_SESSION['url'];
+       
+}else{
+       $url = "http://localhost/zoefit/";
 
-
+}
+$location = 'location:' . $url;
 
 
 ?>
@@ -54,12 +63,12 @@ include('../configs/style.config.php');
                      } else {
                             $insert = mysqli_query($conn, "INSERT INTO `clients`(`id`, `name`, `email`, `phone`, `password`) VALUES ('','$name','$email','$phone','$password')");
 
-                            if ($insert) {
-                                   $id = $conn->insert_id;
-                                   $_SESSION['userLogin'] = $id;
-                                   header('location:../index.php');
-                            } else {
-                                   echo '<script>
+                                    if ($insert) {
+                                             $id = $conn->insert_id;
+                                             $_SESSION['userLogin'] = $id;
+                                             header('location:../index.php');
+                                    } else {
+                                             echo '<script>
                                       window.onload = function(){
                                              Swal.fire({
                                              title: "Internal Server Error",
@@ -85,26 +94,26 @@ include('../configs/style.config.php');
                                           <h2 class="mt-10 text-center text-2xl  leading-9 tracking-tight text-gray-900">Sign up to your account</h2>
                                    </div>
 
-                                   <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                                          <form class="space-y-6" action="#" method="POST">
-                                                 <div>
-                                                        <label for="email" class="block text-sm  leading-6 text-gray-900">Name</label>
-                                                        <div class="mt-2">
-                                                               <input id="name" name="name" type="name" autocomplete="name" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600  placeholder:text-gray-400  sm:text-sm sm:leading-6">
-                                                        </div>
-                                                 </div>
-                                                 <div>
-                                                        <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
-                                                        <div class="mt-2">
-                                                               <input id="email" name="email" type="email" autocomplete="email" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600 placeholder:text-gray-400  sm:text-sm sm:leading-6">
-                                                        </div>
-                                                 </div>
-                                                 <div>
-                                                        <label for="phone" class="block text-sm  leading-6 text-gray-900">Phone Number</label>
-                                                        <div class="mt-2">
-                                                               <input id="phone" name="phone" type="number" autocomplete="phone" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600 placeholder:text-gray-400  sm:text-sm sm:leading-6">
-                                                        </div>
-                                                 </div>
+                                             <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+                                                      <form class="space-y-6" action="#" method="POST">
+                                                               <div>
+                                                                        <label for="email" class="block text-sm  leading-6 text-gray-900">Name</label>
+                                                                        <div class="mt-2">
+                                                                                 <input id="name" name="name" type="=name" autocomplete="name" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600  placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                                        </div>
+                                                               </div>
+                                                               <div>
+                                                                        <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
+                                                                        <div class="mt-2">
+                                                                                 <input id="email" name="email" type="email" autocomplete="email" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600 placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                                        </div>
+                                                               </div>
+                                                               <div>
+                                                                        <label for="phone" class="block text-sm  leading-6 text-gray-900">Phone Number</label>
+                                                                        <div class="mt-2">
+                                                                                 <input id="phone" name="phone" type="number" autocomplete="phone" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-gray-600 placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                                        </div>
+                                                               </div>
 
                                                  <div>
                                                         <div class="flex items-center justify-between">
