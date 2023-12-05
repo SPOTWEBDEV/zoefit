@@ -3,6 +3,14 @@
 include('../configs/database.php');
 include('../configs/clients/auth.php');
 
+if(isset($_SESSION['url'])){
+   $url = $_SESSION['url'];
+   echo $url;
+}else{
+       $url = 'http://localhost/zoefit/';
+}
+
+ 
          if (isset($_POST['login'])) {
                   $phone = $_POST['phone'];
                   $password = $_POST['password'];

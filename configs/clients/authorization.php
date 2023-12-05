@@ -5,7 +5,9 @@ if(isset($_SESSION['userLogin'])){
     $id = $_SESSION['userLogin'];
     
 }else{
-     header('location: http://localhost/zoefit/errors/ERROR-404/');
+    $currentURL = $_SERVER['REQUEST_URI'];
+    $_SESSION['url'] = $currentURL;
+     header('location: http://localhost/zoefit/errors/ERROR-403/');
 }
 
 ?>
