@@ -1,6 +1,6 @@
 <?php
 
-
+session_start();
 
 // Create a connection to the MySQL database
 $conn = mysqli_connect('localhost','root','','zoefit');

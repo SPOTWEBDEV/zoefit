@@ -2,34 +2,16 @@
 
 include('../configs/database.php');
 include('../configs/clients/auth.php');
-
-         if (isset($_POST['login'])) {
-                  $phone = $_POST['phone'];
-                  $password = $_POST['password'];
-
-                  if (!empty($phone) && !empty($password)) {
-                           $select = mysqli_query($conn, "SELECT * FROM `clients` WHERE `phone`='$phone' AND `password`='$password'");
-
-                           if (mysqli_num_rows($select)) {
-                                    while ($row = mysqli_fetch_assoc($select)) {
-                                             $id = $row['id'];
-                                             $_SESSION['userLogin'] = $id;
-                                             header('location:../index.php');
-                                    }
-                           } else {
-                           echo '<script>
-                                      window.onload = function(){
-                                             Swal.fire({
-                                             title: "Unauthorized",
-                                             text: "Login details are incorrect. Please check your username and password.",
-                                             icon: "error"
-                                             });
-                                      }
-                                    </script>';
-                           }
-                  }
-                  
-         }
+include('../configs/style.config.php');
+              $url = "";
+              if (isset($_SESSION['url'])) {
+                     $url =  $_SESSION['url'];
+              } else {
+                     $url = "http://localhost/zoefit/";
+              }
+              $location = 'location:' . $url;
+              echo $location;
+         
 
 
 ?>
@@ -48,6 +30,36 @@ include('../configs/clients/auth.php');
 </head>
 
 <body>
+       <?php
+       if (isset($_POST['login'])) {
+              $phone = $_POST['phone'];
+              $password = $_POST['password'];
+
+              if (!empty($phone) && !empty($password)) {
+                     $select = mysqli_query($conn, "SELECT * FROM `clients` WHERE `phone`='$phone' AND `password`='$password'");
+
+                     if (mysqli_num_rows($select)) {
+                            while ($row = mysqli_fetch_assoc($select)) {
+                                   $id = $row['id'];
+                                   $_SESSION['userLogin'] = $id;
+                                    echo 'done';
+                                   // header('location: ../user/profile/');
+                            }
+                     } else {
+                            echo '<script>
+                                      window.onload = function(){
+                                             Swal.fire({
+                                             title: "Unauthorized",
+                                             text: "Login details are incorrect. Please check your username and password.",
+                                             icon: "error"
+                                             });
+                                      }
+                                    </script>';
+                     }
+              }
+       }
+
+       ?>
          <?php include('../includes/navbar.php') ?>
 
 
@@ -62,7 +74,7 @@ include('../configs/clients/auth.php');
                                                                </div>
 
                                                                <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                                                                        <form method="POST" action="http://localhost/zoefit/model/" class="space-y-6">
+                                                                        <form method="POST"  class="space-y-6">
                                                                                  <div>
                                                                                           <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
                                                                                           <div class="mt-2">
