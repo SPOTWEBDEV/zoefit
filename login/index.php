@@ -4,12 +4,13 @@ include('../configs/database.php');
 include('../configs/style.config.php');
 $url = "";
 if (isset($_SESSION['url'])) {
-       $url =  $_SESSION['url'];
+       $url =  "http://localhost" . $_SESSION['url'];
+       
 } else {
        $url = "http://localhost/zoefit/";
 }
 $location = 'location:' . $url;
-echo $location;
+
 
 
 
@@ -26,6 +27,7 @@ echo $location;
        <script src="https://cdn.tailwindcss.com"></script>
        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+       <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 </head>
 
@@ -43,11 +45,21 @@ echo $location;
                                    $id = $row['id'];
                                    $_SESSION['userLogin'] = $id;
                                    echo '<script>alert("hi")</script>';
-                                   header('location: ../user/profile');
+                                   header($location);
                             }
                      } else {
                             echo 'error on login';
                      }
+              }else{
+                     echo '<script>
+                     window.onload = function(){
+                            Swal.fire({
+                            title: "Email And Password Empty",
+                            text: "Sorry, email and password cannot be empty!.",
+                            icon: "error"
+                            });
+                     }
+                   </script>';
               }
        }
 
@@ -70,7 +82,7 @@ echo $location;
                                                  <div>
                                                         <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
                                                         <div class="mt-2">
-                                                               <input id="email" name="email" type="email" autocomplete="email" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                               <input id="email" name="email" type="email" autocomplete="email"  class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
                                                         </div>
                                                  </div>
 
@@ -82,7 +94,7 @@ echo $location;
                                                                </div>
                                                         </div>
                                                         <div class="mt-2">
-                                                               <input id="password" name="password" type="password" autocomplete="current-password" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                               <input id="password" name="password" type="password" autocomplete="current-password"  class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
                                                         </div>
                                                  </div>
 
