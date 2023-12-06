@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body{
+            margin: 0;
+            padding: 0;
+            background: black;
+        }
+        header{
+            width: 100%;
+            height: 60px;
+            background: black;
+            box-shadow: 0em 0em 0.7em white;
+        }
+
+
+        /* section */
+        section{
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .cyber_texts{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .cyber_texts_p1{
+            text-transform: capitalize;
+            color: white;
+            font-size: 40px;
+            font-family: 'Roboto', Arial;
+            font-weight: 600;
+        }
+        span{
+            color: aqua;
+            text-transform: lowercase;
+        }
+        .cyber_texts_p2{
+            color: white;
+            font-family: 'Roboto', Arial;
+            font-size: 20px;
+            margin-top: -5px;
+        }
+        .time_box_holder{
+            width: 40%;
+            height: 380px;
+            border-radius: 20px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .time_box_p1{
+            font-size: 20px;
+            font-family: 'Roboto', Arial;
+        }
+        .time_box_p2{
+            font-size: 40px;
+            margin-top: -10px;
+            font-family: 'Roboto', Arial;
+        }
+        .time_box_p3{
+            font-size: 20px;
+            margin-top: -35px;
+            font-family: 'Roboto', Arial;
+            font-weight: 550;
+            color: aqua;
+        }
+        .time_box_p4{
+            font-size: 20px;
+            /* margin-top: -1px; */
+            font-family: 'Roboto', Arial;
+            font-weight: 500;
+        }
+        .time_box_date1{
+            width: 100px;
+            height: 100px;
+            background: black;
+            border-radius: 10px;
+            margin-top: -38px;
+            /* display: flex;
+            align-items: center;
+            flex-direction: column;
+            row-gap: -40px; */
+        }
+        .time_box{
+            display: flex;
+            column-gap: 10px;
+            margin-top: 20px;
+        }
+        .time_box_date1 p{
+            color: white;
+            /* font-size: 20px; */
+            font-family: 'Roboto', Arial;
+            text-align: center;
+        }
+        .time_box_date1_p1{
+            font-size: 30px;
+        }
+        .time_box_date1_p2{
+            margin-top: -30px;
+            font-size: 15px;
+        }
+        button{
+            font-size: 17px;
+            font-weight: 900;
+            font-family: 'Roboto', Arial;
+            padding: 15px 70px;
+            border-radius: 10px;
+            background: aqua;
+            margin-top: 20px;
+            border: none;
+        }
+        @media screen and (max-width: 947px) {
+            .time_box_holder{
+                width: 380px;
+            }
+        }
+        @media screen and (max-width: 612px) {
+            .cyber_texts_p2{
+                width: 450px;
+                text-align: center;
+                margin-top: -20px;
+            }
+            .time_box_p4{
+                margin-top: -5px;
+            }
+            .time_box_holder{
+                height: 355px;
+            }
+        }
+        @media screen and (max-width: 440px) {
+            .cyber_texts_p2{
+                width: 300px;
+            }
+            .time_box_date1{
+                width: 70px;
+                height: 90px;
+            }
+            .time_box_date1_p1{
+                margin-top: 16px;
+            }
+            .time_box_holder{
+                width: 300px;
+            }
+        }
+        @media screen and (max-width: 386px) {
+            .cyber_texts_p1{
+                width: 300px;
+                text-align: center;
+            }
+        }
+        @media screen and (max-width: 340px) {
+            .cyber_texts_p1{
+                font-size: 35px;
+            }
+            .cyber_texts_p2{
+                font-size: 15px;
+                width: 250px;
+            }
+            .time_box_p1{
+                font-size: 15px;
+            }
+            .time_box_p2{
+                font-size: 35px;
+            }
+            .time_box_p3{
+                font-size: 18px;
+            }
+            .time_box_p4{
+                font-size: 15px;
+                margin-bottom: 20px;
+            }
+            .time_box_holder{
+                width: 230px;
+                height: 270px;
+            }
+            .time_box_date1_p1{
+                font-size: 20px;
+            }
+            .time_box_date1_p2{
+                font-size: 10px;
+                margin-top: -15px;
+            }
+            .time_box_date1{
+                width: 50px;
+                height: 70px;
+            }
+            button{
+                font-size: 15px;
+                padding: 10px 40px;
+            }
+        }
+        @media screen and (max-width: 298px) {
+            .cyber_texts_p1{
+                font-size: 28px;
+                width: 200px;
+            }
+            .cyber_texts_p2{
+                width: 220px;
+            }
+        }
+        @media screen and (max-width: 340px) {
+            header{
+                width: 100%;
+            }
+            .cyber_texts_p1{
+                font-size: 25px;
+                width: 200px;
+            }
+            .cyber_texts_p2{
+                font-size: 12px;
+                width: 180px;
+                margin-top: 5px;
+            }
+            .time_box_p1{
+                font-size: 12px;
+            }
+            .time_box_p2{
+                font-size: 30px;
+            }
+            .time_box_p3{
+                font-size: 15px;
+            }
+            .time_box_p4{
+                font-size: 12px;
+                margin-bottom: 20px;
+            }
+            .time_box_holder{
+                width: 170px;
+                height: 210px;
+                margin-top: 25px;
+            }
+            .time_box_date1_p1{
+                font-size: 15px;
+                margin-top: 10px;
+            }
+            .time_box_date1_p2{
+                font-size: 8px;
+                margin-top: -15px;
+            }
+            .time_box_date1{
+                width: 35px;
+                height: 50px;
+                border-radius: 5px;
+            }
+            button{
+                font-size: 10px;
+                padding: 8px 30px;
+                border-radius: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header></header>
+    <section>
+        <div class="cyber_texts">
+            <p class="cyber_texts_p1">cyber monday <span>sale</span></p>
+            <p class="cyber_texts_p2">
+                We'll never offer this deal again Get it now or it's gone forever.
+            </p>
+        </div>
+
+        <div class="time_box_holder">
+            <p class="time_box_p1">Up to</p>
+            <p class="time_box_p2">70% off</p>
+            <p class="time_box_p3">+1 FREE MONTH</p>
+            <p class="time_box_p4">offer ends in</p>
+
+            <div class="time_box">
+                <div class="time_box_date1">
+                    <p class="time_box_date1_p1">02</p>
+                    <p class="time_box_date1_p2">DAYS</p>
+                </div>
+
+                <div class="time_box_date1">
+                    <p class="time_box_date1_p1">23</p>
+                    <p class="time_box_date1_p2">HOURS</p>
+                </div>
+
+                <div class="time_box_date1">
+                    <p class="time_box_date1_p1">19</p>
+                    <p class="time_box_date1_p2">MINS</p>
+                </div>
+            </div>
+
+            <button>
+                Explore offers
+            </button>
+        </div>
+    </section>
+</body>
+</html>

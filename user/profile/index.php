@@ -19,6 +19,23 @@ if(isset($_POST['save'])){
 }
 
 
+// session_start();
+if(isset($_POST['save'])){
+         $name = $_POST['name'];
+         $password = $_POST['password'];
+         $email = $_POST['email'];
+
+         if(!empty($name) && !empty($email) && !empty($password) ){
+               $update = mysqli_query($conn,"UPDATE `clients` SET `name`='$name',`email`='$email',`password`='$password' WHERE `id`='$id'");
+               
+               if($update){
+                   header('location: ./index.php');
+               }
+
+         }
+}
+
+
 ?>
 
 
@@ -39,7 +56,7 @@ if(isset($_POST['save'])){
          <?php include('../../includes/navbar.php')  ?>
 
          <section class="w-full flex items-center justify-center py-6 mt-5">
-                  <form class="bg-white w-[400px] px-3 py-2 rounded-lg">
+                  <form method="POST" class="bg-white w-[400px] px-3 py-2 rounded-lg">
                            <div class="space-y-12 ">
 
 
@@ -56,9 +73,9 @@ if(isset($_POST['save'])){
                                                       </div>
 
                                                       <div class="sm:col-span-3">
-                                                               <label for="phone" class="block text-sm font-medium leading-6 text-gray-900">Phone Number</label>
+                                                               <label for="phone" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
                                                                <div class="mt-2">
-                                                                        <input type="text" name="phone" id="phone" value="<?php echo $phone ?>" autocomplete="family-name" class="h-12 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm placeholder:text-gray-400 border-2 px-2 sm:text-sm sm:leading-6">
+                                                                        <input type="text" name="password" id="password" value="<?php echo $password ?>" autocomplete="family-name" class="h-12 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm placeholder:text-gray-400 border-2 px-2 sm:text-sm sm:leading-6">
                                                                </div>
                                                       </div>
 

@@ -233,8 +233,7 @@
 
 
 <script>
-  const authorization = "<?php echo $authorization ?>";
-  console.log();
+ 
   const options = document.querySelectorAll('#options');
   const optionsHolder = document.querySelectorAll('#optionsHolder');
   options.forEach((el, index) => {

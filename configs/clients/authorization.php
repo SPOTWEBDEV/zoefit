@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 if(isset($_SESSION['userLogin'])){    
     $id = $_SESSION['userLogin'];
 
@@ -14,13 +14,14 @@ if(isset($_SESSION['userLogin'])){
             $name = $row['name'];
             $phone = $row['phone'];
             $email= $row['email'];
+            $password = $row['password'];
         }
     } 
 
     
     
 }else{
-    $currentUrl = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+     $currentUrl = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
      $_SESSION['url'] = $currentUrl;
      header('location: http://localhost/zoefit/errors/ERROR-403/');
 }
