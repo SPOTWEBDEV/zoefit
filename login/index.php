@@ -1,23 +1,23 @@
 <?php
 
 include('../configs/database.php');
-include('../configs/clients/auth.php');
+// include('../configs/clients/authorization.php');
 
-         if (isset($_POST['login'])) {
-                  $phone = $_POST['phone'];
-                  $password = $_POST['password'];
+if (isset($_POST['reg'])) {
+       $email = $_POST['email'];
+       $password = $_POST['password'];
 
-                  if (!empty($phone) && !empty($password)) {
-                           $select = mysqli_query($conn, "SELECT * FROM `clients` WHERE `phone`='$phone' AND `password`='$password'");
+       if (!empty($email) && !empty($password)) {
+              $select = mysqli_query($conn, "SELECT * FROM `clients` WHERE `email`='$email' AND `password`='$password'");
 
-                           if (mysqli_num_rows($select)) {
-                                    while ($row = mysqli_fetch_assoc($select)) {
-                                             $id = $row['id'];
-                                             $_SESSION['userLogin'] = $id;
-                                             header('location:../index.php');
-                                    }
-                           } else {
-                           echo '<script>
+              if (mysqli_num_rows($select)) {
+                     while ($row = mysqli_fetch_assoc($select)) {
+                            $id = $row['id'];
+                            $_SESSION['userLogin'] = $id;
+                            header('location: ../index.php');
+                     }
+              } else {
+                     echo '<script>
                                       window.onload = function(){
                                              Swal.fire({
                                              title: "Unauthorized",
@@ -26,10 +26,19 @@ include('../configs/clients/auth.php');
                                              });
                                       }
                                     </script>';
-                           }
-                  }
-                  
-         }
+              }
+       }else {
+              echo '<script>
+                               window.onload = function(){
+                                      Swal.fire({
+                                      title: "Unauthorized",
+                                      text: "Login is empty. Please check your username and password.",
+                                      icon: "error"
+                                      });
+                               }
+                             </script>';
+       }
+}
 
 
 ?>
@@ -49,7 +58,7 @@ include('../configs/clients/auth.php');
 </head>
 
 <body>
-         <?php include('../includes/navbar.php') ?>
+       <?php include('../includes/navbar.php') ?>
 
 
 
@@ -62,14 +71,14 @@ include('../configs/clients/auth.php');
                                           <h2 class="mt-10 text-center text-2xl  leading-9 tracking-tight text-gray-900">Sign in to your account</h2>
                                    </div>
 
-                                                               <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                                                                        <form method="POST" action="http://localhost/zoefit/model/" class="space-y-6">
-                                                                                 <div>
-                                                                                          <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
-                                                                                          <div class="mt-2">
-                                                                                                   <input id="email" name="email" type="email" autocomplete="email" required class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
-                                                                                          </div>
-                                                                                 </div>
+                                   <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+                                          <form method="POST" class="space-y-6">
+                                                 <div>
+                                                        <label for="email" class="block text-sm  leading-6 text-gray-900">Email address</label>
+                                                        <div class="mt-2">
+                                                               <input id="email" name="email" type="email" autocomplete="email" class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                        </div>
+                                                 </div>
 
                                                  <div>
                                                         <div class="flex items-center justify-between">
@@ -79,7 +88,7 @@ include('../configs/clients/auth.php');
                                                                </div>
                                                         </div>
                                                         <div class="mt-2">
-                                                               <input id="password" name="password" type="password" autocomplete="current-password"  class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
+                                                               <input id="password" name="password" type="password" autocomplete="current-password" class="block w-full px-2 rounded-md border-2 py-1.5 text-gray-900 border-black  placeholder:text-gray-400  sm:text-sm sm:leading-6">
                                                         </div>
                                                  </div>
 

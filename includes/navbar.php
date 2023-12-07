@@ -166,7 +166,7 @@
 
                   </a>
 
-                  <a href="../user/settings/deleteaccount/index.php" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
+                  <a href="http://localhost/zoefit/user/settings/deleteaccount/" class="text-gray-700 block px-4 py-2 text-sm gap-x-5 items-center w-full flex justify-between auth" role="menuitem" tabindex="-1" id="menu-item-0">
                     Delete Account
 
                     <?php if (!isset($_SESSION['userLogin'])) { ?>
