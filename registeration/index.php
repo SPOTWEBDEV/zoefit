@@ -33,6 +33,10 @@ $location = 'location:' . $url;
 
 <body>
        <?php
+
+       ob_start();
+
+
        if (isset($_POST['reg'])) {
               $name = $_POST['name'];
               $email = $_POST['email'];
@@ -65,6 +69,8 @@ $location = 'location:' . $url;
                                    $id = $conn->insert_id;
                                    $_SESSION['userLogin'] = $id;
                                    header('location: ../index.php');
+                                   exit();
+                                   ob_end_flush();
                             } else {
                                    echo '<script>
                                       window.onload = function(){
@@ -77,6 +83,9 @@ $location = 'location:' . $url;
                                     </script>';
                             }
                      }
+
+                     // header('location: ../index.php');
+                     // exit();
               }
        }
        ?>

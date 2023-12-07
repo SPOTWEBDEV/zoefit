@@ -1,7 +1,7 @@
 <?php
 include('../../configs/database.php');
 include('../../configs/style.config.php');
-// include('../../configs/clients/authorization.php');
+include('../../configs/clients/authorization.php');
 
 if(isset($_POST['save'])){
          $name = $_POST['name'];
