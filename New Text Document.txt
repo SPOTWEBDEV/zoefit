@@ -1,0 +1,352 @@
+🔥 ZOEFEEDS WEBSITE — FULL FUNCTIONALITY LIST (MASTER SPEC)
+
+⸻
+
+🟢 1. USER SYSTEM (AUTH & IDENTITY)
+
+✅ Registration
+
+* Register with:
+    * Phone number (PRIMARY ID)
+    * Email
+    * Full name
+* One phone number = one account
+* Multiple phone numbers allowed (not same time)
+
+✅ Login
+
+* Phone number login
+* OTP or password-based
+
+✅ Phone Number Logic
+
+* Accept: all phone numbers formats including 
+    * 080...
+    * 802...
+    * +234...
+* System auto-normalizes → 234XXXXXXXXXX
+* No number stored with leading 0
+
+✅ Profile
+
+* View & edit:
+    * Name
+    * Email
+* Phone number = locked
+
+⸻
+
+🟢 2. USER DASHBOARD (OPAY-STYLE UI)
+
+✅ Balance Display
+
+* Shows Eligibility Balance (number of unused codes)
+* Has:
+    * 👁 Hide/Reveal toggle (blindfold like OPay)
+
+✅ Summary Card
+
+* “Total Unused Codes”
+
+✅ Infinite Scroll
+
+* Load more codes as user scrolls
+
+✅ Code List
+
+Each code shows:
+
+* 15-digit code
+* Status:
+    * Unused
+    * Used
+    * Transferred
+* Date
+
+⸻
+
+🟢 3. 15-DIGIT CODE SYSTEM (CORE ENGINE)
+
+✅ Code Generation (ADMIN ONLY)
+
+* Admin generates codes
+* Codes:
+    * 15-digit numeric
+    * Unique
+* Assigned to vendors
+
+✅ Vendor Role
+
+* Vendors DO NOT generate codes
+* Vendors RECEIVE codes from admin
+* Vendors distribute to users
+
+⸻
+
+🟢 4. CODE REDEMPTION (USER)
+
+✅ Redeem Code
+
+* User enters 15-digit code
+* System checks:
+    * Exists
+    * Not used
+* Adds to user dashboard
+
+✅ Effects
+
+* Code added to wallet
+* Balance increases
+
+⸻
+
+🟢 5. CODE TRANSFER SYSTEM
+
+✅ Transfer by Phone Number
+
+* Sender enters receiver phone
+* System:
+    * Auto-formats number
+    * Instantly shows receiver FULL NAME (confirmation)
+
+✅ Transfer PIN (SECURITY)
+
+* 4-digit PIN required
+* Stored hashed
+* Without PIN → transfer blocked
+
+✅ Transfer Result
+
+* Code moves to receiver
+* Sender balance decreases
+* Receiver balance increases
+
+✅ Animated Success Popup
+
+* On successful transfer or redemption
+
+⸻
+
+🟢 6. DRAW / REWARD SYSTEM
+
+✅ Multiple Reward Categories
+
+Examples:
+
+* Daily Patronage Rewards
+* Government Ticket Rewards
+* Transport Rewards
+* Dashboard Loyalty Rewards
+* Vendor Campaign Rewards
+
+⸻
+
+✅ Each Category Has:
+
+* Countdown timer
+* Entry rules
+* Unique draw cycle
+
+⸻
+
+🟢 7. DRAW ENTRY SYSTEM
+
+✅ User Participation
+
+* User selects specific codes to enter draw
+* NOT automatic
+
+✅ After Entry
+
+* Codes marked:
+    * Used / Reserved
+* Balance updates
+
+⸻
+
+🟢 8. LIVE DRAW EXPERIENCE
+
+✅ Manual Draw System
+
+* Admin inputs 15-digit winning code
+* OR uses physical draw machine
+
+✅ Real-Time Matching Display
+
+* As digits are entered:
+    * Matching codes highlight
+    * Matching digits turn GREEN
+
+⸻
+
+🟢 9. WINNER SELECTION LOGIC (CRITICAL)
+
+✅ Step 1: Match Count
+
+* Compare user codes vs winning code
+* Count matching digits (same position)
+
+⸻
+
+✅ Step 2: Highest Match Wins
+
+* Highest number of matching digits wins
+
+⸻
+
+✅ Step 3: Tie-Breakers (STRICT ORDER)
+
+1. Earliest entry time
+2. Highest number of codes used in that draw
+3. Highest wallet balance
+4. Most historical participation
+5. Random (last resort)
+
+⸻
+
+🟢 10. DRAW FINALIZATION SYSTEM
+
+✅ Multi-Stage Admin Process
+
+* Stage 1 → Show matches
+* Stage 2 → Apply tie-breakers
+* Stage 3 → Final winner
+
+✅ Admin must click:
+
+* “Proceed” between stages
+
+✅ Logs saved at each stage
+
+⸻
+
+🟢 11. POST-DRAW RULE (VERY IMPORTANT)
+
+⚠️ According to YOU (Daniel):
+
+ALL users who participated in the draw:
+
+* Lose ALL their codes
+* Balance becomes ZERO
+
+⸻
+
+🟢 12. ADMIN SYSTEM
+
+✅ Vendor Management
+
+* Create vendor
+* Edit vendor
+* Activate / Deactivate vendor
+
+✅ Code Management
+
+* Generate codes
+* Assign to vendors
+
+✅ Draw Management
+
+* Create draw
+* Start / Stop draw
+* Input winning code
+* Finalize draw
+
+⸻
+
+🟢 13. VENDOR SYSTEM
+
+✅ Vendor Data
+
+* Name
+* Email
+* API key
+* Status (active/disabled)
+
+✅ Vendor Capabilities
+
+* Receive codes
+* Distribute to users
+
+⸻
+
+🟢 14. AUDIT & SECURITY
+
+✅ Audit Logs
+
+* Every admin action logged
+
+✅ Code Traceability
+
+* Every code tracks:
+    * Who generated it
+    * Which vendor received it
+    * Which user owns it
+    * Transfer history
+
+⸻
+
+🟢 15. USER EXPERIENCE FEATURES
+
+✅ Smooth Dashboard (OPay style)
+
+* Clean UI
+* Fast loading
+
+✅ Infinite Scroll
+
+* No pagination stress
+
+✅ Animations
+
+* Success popups
+* Matching highlights
+
+⸻
+
+🟢 16. GLOBAL SUPPORT
+
+✅ Not Nigeria-only
+
+* Accept global phone formats
+* Normalize automatically
+* ⁠
+ 17. API SUPPORT
+
+✅ API VENDOR CONNECTIONS
+
+   * special group of API  registered vendor with zoefeeds who owns their own websites can automatically gift their own customers this zoefeeds raffle ticket as a gift if such their customers successfully used their services and that gifted ticket containing the raffle code will automatically be credited to their ZoeFeeds wallet 
+* Normalize automatically into their ZoeFeeds wallet 
+⸻
+
+🎯 FINAL SUMMARY
+
+Zoefeeds is:
+
+✔ A code-based loyalty reward system
+✔ Powered by vendors
+✔ Using 15-digit eligibility codes
+✔ With manual transparent draws
+✔ And strict, fair winner logic
+
+It’s all about building a system of generating and printing recharge cards we *call raffle tickets* instead of recharge cards 😂
+
+Just as Thelotter.com landing page displaying diverse clickable draws with count down for each one already counting down , if clicked it will now show the person details and rules about that particular draw
+
+Meanwhile the website SUPER ADMIN (if possible among other admins) will be the person  controlling what is being displayed on the frontend such as: 
+•UPLOADING /DELETING a particular slide on the slide display Div, 
+   •SETTINGS /EDITTING THE TIME of a particular draw’s count down,
+* ADD/DELETING or PENDING of a particular draw totally!, 
+* ⁠and any other thing admin should do,
+
+
+* Complex database logic
+* Real-time draw calculations
+* Transfer PIN security
+* Massive code generation
+* Live updates
+* Wallet balances
+* API systems
+* Vendor systems
+* Scalable architecture
+
+This one is a lottery site with Automated Slides shows we can mimic  just for our adverts on our website
