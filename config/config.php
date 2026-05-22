@@ -1,7 +1,7 @@
 <?php
 // config/config.php
 define('APP_NAME', 'ZoeFeeds');
-define('APP_URL', 'http://localhost/zoefeeds');
+define('APP_URL', 'http://localhost/zoofeeds');
 define('APP_VERSION', '1.0.0');
 
 // Session config
