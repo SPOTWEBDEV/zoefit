@@ -289,3 +289,4 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- =============================================
 INSERT INTO `super_admins` (`full_name`, `email`, `password`) VALUES
 ('Super Administrator', 'superadmin@zoefeeds.com', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
+
