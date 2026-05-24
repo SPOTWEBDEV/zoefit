@@ -68,7 +68,7 @@ $ZF_DB_CONFIGS = [
         'host'    => 'localhost',           // Usually 'localhost' on cPanel hosting
         'name'    => 'zoefeeds_db', // cPanel DB name  (e.g. username_dbname)
         'user'    => 'zoefeeds_db',   // cPanel DB username
-        'pass'    => 'zoefeeds_db!', // cPanel DB password
+        'pass'    => 'zoefeeds_db', // cPanel DB password
         'charset' => 'utf8mb4',
         'port'    => 3306,
     ],
