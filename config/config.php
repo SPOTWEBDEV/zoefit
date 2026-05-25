@@ -1,8 +1,7 @@
 <?php
-// ============================================================
-// config/config.php — ZoeFeeds Application Configuration
-// APP_URL and all security settings auto-switch per environment
-// ============================================================
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // database.php must be loaded first (it sets ZF_ENV)
 require_once __DIR__ . '/database.php';
