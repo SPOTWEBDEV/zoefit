@@ -23,9 +23,9 @@ define('APP_TAGLINE', 'Loyalty Reward & Raffle Platform');
 function zf_build_app_url(): string {
     // --- Override map: set a hard-coded URL per environment ---
     $overrides = [
-        // 'local'      => 'http://localhost/zoefeeds',
-        // 'staging'    => 'http://staging.zoefeeds.com',
-        // 'production' => 'https://www.zoefeeds.com',
+        'local'      => 'http://localhost/zoofeeds',
+        'staging'    => 'http://staging.zoefeeds.com',
+        'production' => 'https://www.zoefeeds.com',
     ];
 
     if (isset($overrides[ZF_ENV])) {
@@ -344,3 +344,5 @@ function zf_debug(mixed $data): void {
     echo htmlspecialchars(print_r($data, true), ENT_QUOTES, 'UTF-8');
     echo '</pre>';
 }
+
+

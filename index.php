@@ -17,12 +17,12 @@ $slides = $db->query("SELECT * FROM slides WHERE status='active' ORDER BY sort_o
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ZoeFeeds — Loyalty Reward & Raffle Platform</title>
   <meta name="description" content="ZoeFeeds is Nigeria's #1 loyalty reward and raffle eligibility platform. Redeem codes, enter draws, win amazing prizes.">
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
-  <script>
+  <script src="<?= APP_URL ?>/assets/js/tailwindcss.js" defer></script>
+  <!-- <script>
     tailwind.config = {
       theme: {
         extend: {
@@ -34,7 +34,7 @@ $slides = $db->query("SELECT * FROM slides WHERE status='active' ORDER BY sort_o
         }
       }
     }
-  </script>
+  </script> -->
   <style>
     * { font-family: 'Poppins', sans-serif !important; }
     .gradient-text { background: linear-gradient(135deg, #f97316, #fb923c, #fcd34d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }

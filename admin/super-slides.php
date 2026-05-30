@@ -54,7 +54,7 @@ $slides=$db->query("SELECT * FROM slides ORDER BY sort_order ASC, created_at DES
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title>Banners — <?= APP_NAME ?> Super Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>*{font-family:'Poppins',sans-serif!important}</style>

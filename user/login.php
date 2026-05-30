@@ -56,7 +56,7 @@ if (isPost()) {
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login — <?= APP_NAME ?></title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwindcss.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
 </head>
@@ -92,6 +92,12 @@ if (isPost()) {
         <button type="submit" class="btn btn-primary w-full py-3 text-base mt-2">Sign In</button>
       </form>
       <p class="text-center text-sm text-gray-400 mt-6">New to ZoeFeeds? <a href="<?= APP_URL ?>/user/register.php" class="text-orange-400 hover:underline font-semibold">Create account</a></p>
+      <div class="text-center mt-4 text-sm text-gray-500 space-x-4">
+      <a href="<?= APP_URL ?>/user/login.php" class="hover:text-orange-400">User Login</a>
+      <span>|</span>
+      <a href="<?= APP_URL ?>/vendor/login.php" class="hover:text-orange-400">Vendor Login</a>
+      <span>|</span>
+    </div>
     </div>
   </div>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
