@@ -95,8 +95,7 @@ if (isPost()) {
       <div class="text-center mt-4 text-sm text-gray-500 space-x-4">
       <a href="<?= APP_URL ?>/user/login.php" class="hover:text-orange-400">User Login</a>
       <span>|</span>
-      <a href="<?= APP_URL ?>/vendor/login.php" class="hover:text-orange-400">Vendor Login</a>
-      <span>|</span>
+     
     </div>
     </div>
   </div>
