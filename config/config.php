@@ -7,6 +7,17 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/database.php';
 
 // ============================================================
+// RELEASE VERSION FLAGS
+// ============================================================
+// V1 = true  → Vendor system is hidden from all UI (pages still
+//              exist on disk, just not linked or accessible via nav).
+//              Set to false when you are ready to launch vendor features.
+define('ZF_V1_MODE',         true);   // true = vendor features hidden in UI
+define('ZF_SHOW_VENDOR_NAV', false);  // false = hide vendor nav items & apply page
+define('ZF_SHOW_TRANSFER',   false);  // false = hide transfer page from user nav
+ 
+
+// ============================================================
 // APP IDENTITY
 // ============================================================
 define('APP_NAME',    'ZoeFeeds');
