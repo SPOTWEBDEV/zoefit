@@ -180,19 +180,39 @@ $aPage='codes';
       <?php endforeach; ?>
     </div>
 
+    <!-- Selection toolbar (shown when items checked) -->
+    <div id="sel-toolbar" class="hidden mb-3 p-3 bg-orange-500/10 border border-orange-500/25 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-orange-300 font-semibold"><span id="sel-count">0</span> code(s) selected</span>
+        <button onclick="deselectAll()" class="text-xs text-gray-400 hover:text-white">Deselect all</button>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="downloadSelected('txt')" class="btn btn-secondary btn-sm text-cyan-400">⬇ Download .txt</button>
+        <button onclick="downloadSelected('csv')" class="btn btn-primary btn-sm">⬇ Download .csv</button>
+        <button onclick="copySelected()" class="btn btn-secondary btn-sm text-green-400">📋 Copy</button>
+      </div>
+    </div>
+
     <!-- Table -->
     <div class="card">
       <div class="table-wrap">
-        <table>
+        <table id="codes-table">
           <thead>
             <tr>
+              <th style="width:40px">
+                <input type="checkbox" id="chk-all" class="w-4 h-4 accent-orange-500" onchange="toggleAllCodes(this)">
+              </th>
               <th>Code</th><th>Status</th><th>Owner</th><th>Vendor</th><th>Batch</th><th>Generated</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach($codes as $c): ?>
-            <tr>
-              <td><code class="text-orange-400 font-bold tracking-widest text-sm"><?= e($c['code']) ?></code></td>
+            <tr class="code-row" data-code="<?= e($c['code']) ?>">
+              <td>
+                <input type="checkbox" class="code-chk w-4 h-4 accent-orange-500"
+                       value="<?= e($c['code']) ?>" onchange="updateSel()">
+              </td>
+              <td><code class="text-orange-400 font-bold tracking-widest text-sm select-all"><?= e($c['code']) ?></code></td>
               <td><span class="badge <?= match($c['status']){'unassigned'=>'badge-muted','assigned'=>'badge-info','redeemed'=>'badge-success','reserved'=>'badge-warning','used'=>'badge-danger','transferred'=>'badge-muted',default=>'badge-muted'} ?>"><?= $c['status'] ?></span></td>
               <td class="text-sm"><?= $c['owner_name'] ? e($c['owner_name']) : '<span class="text-gray-600">—</span>' ?></td>
               <td class="text-sm"><?= $c['vendor_name'] ? '<span class="text-purple-400">'.e($c['vendor_name']).'</span>' : '<span class="text-gray-600">—</span>' ?></td>
@@ -204,10 +224,11 @@ $aPage='codes';
               <td class="text-xs text-gray-500"><?= date('M j, Y', strtotime($c['generated_at'])) ?></td>
             </tr>
             <?php endforeach; ?>
-            <?php if(!$codes): ?><tr><td colspan="6" class="text-center text-gray-500 py-10">No codes found<?= $q?' for "'.e($q).'"':'' ?></td></tr><?php endif; ?>
+            <?php if(!$codes): ?><tr><td colspan="7" class="text-center text-gray-500 py-10">No codes found<?= $q?' for "'.e($q).'"':'' ?></td></tr><?php endif; ?>
           </tbody>
         </table>
       </div>
+
       <?php if($pages>1): ?>
       <div class="flex items-center justify-between p-4 border-t border-white/5">
         <div class="text-sm text-gray-400"><?= number_format($total) ?> codes · Page <?= $page ?>/<?= $pages ?></div>
