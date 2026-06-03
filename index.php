@@ -44,6 +44,8 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
     @media(max-width:768px){.step-connector{display:none;}}
     .winner-card{background:linear-gradient(135deg,rgba(234,179,8,.12),rgba(0,0,0,0));border:1px solid rgba(234,179,8,.25);}
     section{scroll-margin-top:72px;}
+    /* Live counter animation */
+    .live-counter{transition:all .3s ease;}
   </style>
 </head>
 <body class="bg-[#0a0f1a] text-white overflow-x-hidden">
@@ -98,7 +100,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <div class="absolute inset-0 pointer-events-none">
     <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl"></div>
     <div class="absolute bottom-1/4 left-1/4 w-64 h-64 bg-cyan-500/6 rounded-full blur-3xl"></div>
-    <!-- Grid pattern -->
     <div class="absolute inset-0 opacity-[0.03]" style="background-image:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,.5) 40px,rgba(255,255,255,.5) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,.5) 40px,rgba(255,255,255,.5) 41px)"></div>
   </div>
   <!-- Particles -->
@@ -124,15 +125,28 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <p class="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
           ZoeFeeds rewards loyal customers through a <strong class="text-white">fair, transparent, and fully regulated</strong> draw program. Collect 15-digit raffle codes from eligible purchases, enter live draws, and win life-changing prizes.
         </p>
-        <!-- Key stats -->
+        <!-- Live Stats — rendered from DB and updated in real-time via JS -->
         <div class="flex flex-wrap gap-6 mb-9 text-sm">
-          <div class="flex items-center gap-2"><span class="text-2xl font-black text-orange-400"><?= number_format($totalUsers) ?>+</span><span class="text-gray-500">Registered</span></div>
-          <div class="flex items-center gap-2"><span class="text-2xl font-black text-green-400"><?= number_format($totalWinners) ?></span><span class="text-gray-500">Winners</span></div>
-          <div class="flex items-center gap-2"><span class="text-2xl font-black text-cyan-400"><?= number_format($totalDraws) ?></span><span class="text-gray-500">Draws Completed</span></div>
+          <div class="flex items-center gap-2">
+            <span id="stat-users" class="live-counter text-2xl font-black text-orange-400"><?= number_format((int)$totalUsers) ?></span>
+            <span class="text-gray-500">Registered</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="stat-winners" class="live-counter text-2xl font-black text-green-400"><?= number_format((int)$totalWinners) ?></span>
+            <span class="text-gray-500">Winners</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="stat-draws" class="live-counter text-2xl font-black text-cyan-400"><?= number_format((int)$totalDraws) ?></span>
+            <span class="text-gray-500">Draws Completed</span>
+          </div>
         </div>
         <div class="flex flex-wrap gap-3 mb-8">
           <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-8 py-4 text-base font-bold">🎟️ Start Winning Free</a>
           <a href="#how-it-works" class="btn btn-secondary px-8 py-4 text-base">How It Works →</a>
+        </div>
+        <!-- Login prompt -->
+        <div class="flex items-center gap-3 mb-6">
+          <a href="<?= APP_URL ?>/user/login.php" class="btn btn-secondary px-6 py-3 text-sm font-semibold">🔑 Log In to Your Account</a>
         </div>
         <div class="flex flex-wrap gap-4 text-xs text-gray-500">
           <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Free to join</span>
@@ -143,9 +157,8 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       </div>
 
       <!-- Right: Floating card mockup -->
-       <div class="relative hidden lg:block">
+      <div class="relative hidden lg:block">
         <div class="hero-float">
-          <!-- Main card -->
           <div class="card-glow p-6 glow-orange" style="border-radius:24px">
             <div class="flex items-center justify-between mb-5">
               <div>
@@ -155,13 +168,11 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
               </div>
               <div class="w-14 h-14 bg-orange-500/20 rounded-2xl flex items-center justify-center text-3xl">🎯</div>
             </div>
-            <!-- Fake code entry -->
             <div class="bg-black/30 rounded-xl p-4 mb-4">
               <div class="text-xs text-gray-500 mb-2">Latest Code</div>
               <div class="font-mono text-orange-400 font-bold text-lg tracking-widest">7 4 2 0 8 1 9 3 5 6 2 7 4 0 1</div>
               <div class="badge badge-success mt-2">● Active</div>
             </div>
-            <!-- Mini draw card -->
             <div class="bg-gradient-to-r from-orange-900/40 to-transparent rounded-xl p-4 border border-orange-500/20">
               <div class="flex items-center justify-between">
                 <div>
@@ -173,8 +184,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
               </div>
             </div>
           </div>
-
-          <!-- Floating badges -->
           <div class="absolute -top-4 -right-4 glass rounded-2xl px-4 py-3 glow-blue">
             <div class="text-xs text-cyan-300 font-semibold">🎉 Winner!</div>
             <div class="text-xs text-gray-400">Emeka just won</div>
@@ -246,7 +255,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <span class="pulse-dot" style="background:#ef4444"></span> Live Draws
       </div>
       <h2 class="text-4xl font-black mb-3">Active Draw Campaigns</h2>
-      <p class="text-gray-400 max-w-lg mx-auto text-sm">Enter draws using your redeemed codes. Every valid entry has an equal chance of selection.</p>
+      <p class="text-gray-400 max-w-lg mx-auto text-sm">Enter draws using your redeemed codes. Every valid entry has an equal chance of selection. There are <strong class="text-orange-400">mandatory</strong> winners every draw.</p>
     </div>
 
     <?php if ($draws): ?>
@@ -272,7 +281,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       <?php endforeach; ?>
     </div>
     <?php else: ?>
-    <!-- Placeholder draw cards when none in DB -->
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <?php $dummyDraws=[
         ['🏆','Monthly Grand Draw','Win up to ₦1,000,000','Grand Prize','2026-07-31 23:59:00'],
@@ -300,7 +308,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 
 <!-- ======================================================
-     HOW IT WORKS  (from T&C §5 + §7)
+     HOW IT WORKS
 ====================================================== -->
 <section id="how-it-works" class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
   <div class="text-center mb-14">
@@ -310,13 +318,13 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <div class="grid md:grid-cols-4 gap-8 relative">
     <?php $steps=[
       ['1','📝','Create Your Account','Register with your phone number in under 60 seconds. Free forever. Age 18+ only.'],
-      ['2','🎟️','Redeem Your Code','Enter your 15-digit raffle code from eligible purchases into your ZoeFeeds wallet.'],
+      ['2','🎟️','Redeem Your Code','Redeem your unique 15-digit raffle code given by our verified vendor into your ZoeFeeds wallet.'],
       ['3','🎯','Enter a Draw','Choose an active draw campaign and submit your code(s). More codes = more chances.'],
-      ['4','🏆','Win Prizes','Our transparent, certified draw process selects winners fairly. Winners are notified via SMS, email &amp; website announcement.'],
+      ['4','🏆','Win Prizes','Our transparent, certified manual machine draw process selects winners fairly. Winners are notified via SMS, email &amp; website announcement.'],
     ]; foreach($steps as $i=>$s): ?>
     <div class="text-center relative">
       <?php if($i<3): ?><div class="step-connector hidden md:block"></div><?php endif; ?>
-      <div class="w-16 h-16 bg-orange-500/10 border-2 border-orange-500/25 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 relative z-10"><?= $s[2] ?></div>
+      <div class="w-16 h-16 bg-orange-500/10 border-2 border-orange-500/25 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 relative z-10"><?= $s[1] ?></div>
       <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-500 rounded-full text-white text-xs font-black mb-2"><?= $s[0] ?></div>
       <h3 class="font-bold text-base mb-2"><?= $s[2] ?></h3>
       <p class="text-gray-400 text-sm leading-relaxed"><?= $s[3] ?></p>
@@ -330,31 +338,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 
 <!-- ======================================================
-     PLATFORM STATS
-====================================================== -->
-<!-- <section class="py-14 bg-[#0d1218]">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <?php $statCards=[
-        [$totalUsers?number_format($totalUsers).'+':"0",'Registered Users','👥'],
-        [$totalWinners?number_format($totalWinners).'+':"0",'Total Winners','🏆'],
-        [$totalDraws?number_format($totalDraws).'+':"0",'Draws Completed','🎯'],
-        ['100%','Draw Transparency','✅'],
-      ]; foreach($statCards as $st): ?>
-      <div class="card p-6 text-center">
-        <div class="text-3xl mb-1"><?= $st[2] ?></div>
-        <div class="text-2xl font-black text-orange-400"><?= $st[0] ?></div>
-        <div class="text-xs text-gray-500 mt-1"><?= $st[1] ?></div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </div>
-</section> -->
-
-
-
-<!-- ======================================================
-     ABOUT  (from T&C §1, §3, §9)
+     ABOUT
 ====================================================== -->
 <section id="about" class="py-20 bg-[#0d1218]">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
@@ -442,9 +426,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 </section>
 
 
-
-
-
 <!-- ======================================================
      TESTIMONIALS
 ====================================================== -->
@@ -473,7 +454,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 
 <!-- ======================================================
-     FAQ  (from T&C questions)
+     FAQ  — 20 Questions
 ====================================================== -->
 <section id="faq" class="py-20 bg-[#0d1218]">
   <div class="max-w-3xl mx-auto px-4 sm:px-6">
@@ -482,16 +463,86 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       <p class="text-gray-400 text-sm">Answers based on the official ZoeFeeds Terms &amp; Conditions</p>
     </div>
     <?php $faqs=[
-      ['Who can participate in ZoeFeeds Reward Draws?','Participation is open to individuals who are at least 18 years old, possess valid identification, and have a valid ZoeFeeds account. Employees and directors of ZoeFeeds are not eligible.'],
-      ['How do I get raffle codes?','Raffle codes are issued exclusively by ZoeFeeds through eligible purchases of products and services on the platform. Codes must be redeemed through your ZoeFeeds account.'],
-      ['Is ZoeFeeds a gambling or betting platform?','No. The ZoeFeeds Reward Draw is a customer appreciation and promotional initiative, not a gambling or betting activity. It operates under applicable Nigerian laws as a legitimate promotional program.'],
-      ['How are winners selected?','The owner of the ticket that matches the draw result in the most positions wins. If there is a tie, the winner with more ticket entries is chosen. If still tied, the participant who registered earliest on the platform wins.'],
-      ['Does ZoeFeeds sell raffle codes?','No. ZoeFeeds does not sell raffle codes separately. Any person offering to sell ZoeFeeds raffle codes is acting without authorization. Never pay anyone claiming to sell codes or guarantee winning entries.'],
-      ['How are winners notified?','Winners are notified via telephone calls, SMS, email, website announcements, and official social media platforms. Keep your contact details current.'],
-      ['What happens if a prize is unclaimed?','ZoeFeeds may conduct a redraw, roll the prize over to a future draw, or apply an alternative process approved by the relevant regulatory authority.'],
-      ['How are draws conducted?','All draws are conducted using a fair, transparent, manual or certified random selection process. They may include independent observers, regulatory representatives, and are publicly observable.'],
-      ['Can I transfer my raffle codes?','Code ownership transfers are available to vendors through the vendor panel. Standard users may contact support for specific queries about code management.'],
-      ['What law governs ZoeFeeds?','ZoeFeeds Terms and Conditions are governed by the laws of the Federal Republic of Nigeria. Disputes are subject to the jurisdiction of competent Nigerian courts.'],
+      [
+        'How do I get ZoeFeeds raffle codes (raffle tickets)?',
+        'You automatically receive real free ZoeFeeds codes (raffle tickets) in two ways: the first is whenever you purchase eligible products or services from ZoeFeeds; the second is by gifting — whenever anyone freely gifts you the ticket code directly or automatically. Each qualifying purchase earns you entry codes that are included in the promotional draw. When you redeem your code it will be recorded and linked to your account. You can also check your account dashboard to view your available codes.'
+      ],
+      [
+        'How much is a ZoeFeeds raffle code (raffle ticket)?',
+        'ZoeFeeds raffle codes are completely free and are automatically awarded when you purchase eligible products or services on ZoeFeeds. You do not pay separately for raffle codes. <strong class="text-red-400">Warning:</strong> ZoeFeeds does not sell raffle codes or tickets, and anyone claiming to sell them is not authorized by ZoeFeeds. Our aim is to reward and appreciate our customers through a fair and transparent promotional reward program while providing affordable products and services. On any third-party platform, ZoeFeeds codes must be transferred to you as a gift — never sold.'
+      ],
+      [
+        'What is a ZoeFeeds Gift Code (Raffle Ticket)?',
+        'A ZoeFeeds Gift Code is a free 15-digit code you receive after completing an eligible transaction on ZoeFeeds, or one that is gifted to you by another party. You can redeem the code in your ZoeFeeds wallet and use it to enter any available draw of your choice. Each code serves as your unique entry identifier in the draw. If your entry is selected as the winning identifier according to the draw rules, you win the prize.'
+      ],
+      [
+        'How can I check my raffle codes?',
+        'You can view all your raffle codes in your ZoeFeeds account dashboard after a successful purchase or after you have manually entered and redeemed your raffle code into your ZoeFeeds wallet.'
+      ],
+      [
+        'When will the raffle draw take place?',
+        'Each raffle draw\'s date is always counting down on our website and may be announced on our official social media platforms.'
+      ],
+      [
+        'How is the winner selected?',
+        'Winners are selected through a transparent and random manual process draw to ensure fairness for all participants. The owner of the ticket that matches the draw result in the most positions wins. If there is a tie, the winner with more ticket entries is chosen. If still tied, the participant who registered earliest on the platform wins.'
+      ],
+      [
+        'Who can participate in the ZoeFeeds Reward Draw?',
+        'The promotion is open only to persons aged 18 years and above who meet the participation requirements stated in the promotion rules, possess valid identification, and hold a valid ZoeFeeds account.'
+      ],
+      [
+        'Can I get more than one raffle code?',
+        'Yes. Each ticket gift code you receive will earn you additional raffle tickets, increasing your chances of matching the draw.'
+      ],
+      [
+        'What prizes can be won?',
+        'Prize details for each promotional draw will be announced before the draw date and displayed on that particular draw\'s page and on our official channels.'
+      ],
+      [
+        'How will I know if I win?',
+        'Winners will be contacted through their registered phone number and/or email address and may also be announced on ZoeFeeds\' official platforms live!'
+      ],
+      [
+        'What happens if a winner cannot be reached?',
+        'If a winner cannot be contacted or fails to verify their identity within the specified period, another winner may be selected according to the promotion rules. ZoeFeeds operates by the principle that someone must win in each draw — it is mandatory!'
+      ],
+      [
+        'Can I transfer my raffle codes to someone else?',
+        'Yes. Redeemed raffle codes are linked to the account that earned them and guarded with a transfer PIN. However, if you wish, you can transfer a code as a gift to another user — but codes must never be sold.'
+      ],
+      [
+        'Is the ZoeFeeds Reward Draw a lottery or gambling scheme?',
+        'No. The ZoeFeeds Reward Draw is a customer appreciation promotion. Raffle codes are provided free as a promotional benefit and are not sold. They must remain free and not for sale — forever.'
+      ],
+      [
+        'Are my chances of winning the same as everyone else\'s?',
+        'Yes. Every valid raffle code you enter into a particular draw has an equal chance of matching with the draw. Entering more codes increases your chances.'
+      ],
+      [
+        'How can I report fraud or suspicious activities?',
+        'If anyone claims to sell ZoeFeeds raffle codes or contacts you requesting payment to claim a prize, please contact ZoeFeeds support immediately through our official channels on the website.'
+      ],
+      [
+        'Where can I find the full promotion rules?',
+        'The complete Terms and Conditions for the ZoeFeeds Reward Draws are available on our website. <a href="'.APP_URL.'/user/terms.php" class="text-orange-400 hover:underline">Click here to read the full Terms &amp; Conditions →</a>'
+      ],
+      [
+        'What do I do when I am gifted a ZoeFeeds raffle code offline?',
+        'If you receive a ZoeFeeds raffle code offline, log in to your ZoeFeeds account and redeem it using the Raffle Code Redemption button on your dashboard. Once redeemed, your eligibility balance will increase and the code will be added to your Redeemed Codes Wallet, where you can use it to enter any available draw of your choice.'
+      ],
+      [
+        'How can I verify my raffle codes?',
+        'All valid ZoeFeeds raffle codes must be redeemed through your ZoeFeeds account. Once a code is successfully redeemed, it will appear in your Redeemed Codes Wallet. If a code cannot be redeemed or does not appear in your wallet, contact ZoeFeeds Support for assistance.'
+      ],
+      [
+        'Can I enter a particular draw with more than one raffle ticket code?',
+        'Yes. You are encouraged to enter with as many tickets as you can to increase your chances of being the winner.'
+      ],
+      [
+        'What if nobody won in a draw?',
+        'ZoeFeeds raffles operate by the principle that someone must win and be given the prize in each draw. It is mandatory — every draw produces a winner.'
+      ],
     ]; foreach($faqs as $i=>$faq): ?>
     <div class="faq-item card mb-3 overflow-hidden rounded-xl">
       <button onclick="this.closest('.faq-item').classList.toggle('faq-open')" class="w-full text-left px-5 py-4 flex items-center justify-between gap-3 hover:bg-white/2 transition-colors">
@@ -511,7 +562,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 
 <!-- ======================================================
-     WARNING BANNER  (from T&C warning section)
+     WARNING BANNER
 ====================================================== -->
 <section class="py-10 bg-red-500/8 border-y border-red-500/20">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
@@ -533,7 +584,10 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
     <div class="text-6xl mb-5">🎯</div>
     <h2 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ready to Start Winning?</h2>
     <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands of Nigerians participating in ZoeFeeds' fair and transparent reward draws. Create your free account today.</p>
-    <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">🎟️ Create Free Account</a>
+    <div class="flex flex-wrap gap-4 justify-center">
+      <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">🎟️ Create Free Account</a>
+      <a href="<?= APP_URL ?>/user/login.php"    class="btn btn-secondary px-10 py-5 text-lg font-bold">🔑 Log In</a>
+    </div>
     <div class="text-xs text-gray-600 mt-4">No credit card required · Free forever · Instant setup · Age 18+</div>
   </div>
 </section>
@@ -621,5 +675,19 @@ document.querySelectorAll('.draw-card-land, .card, .winner-card').forEach(el => 
   el.style.cssText += ';opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease';
   obs.observe(el);
 });
+
+// Live stats polling — refreshes every 30 seconds from a lightweight endpoint
+(function pollStats() {
+  fetch('<?= APP_URL ?>/api/stats.php')
+    .then(r => r.json())
+    .then(data => {
+      if (data.users   !== undefined) document.getElementById('stat-users').textContent   = Number(data.users).toLocaleString();
+      if (data.winners !== undefined) document.getElementById('stat-winners').textContent = Number(data.winners).toLocaleString();
+      if (data.draws   !== undefined) document.getElementById('stat-draws').textContent   = Number(data.draws).toLocaleString();
+    })
+    .catch(() => {}) // silently fail — DB values already rendered server-side
+    .finally(() => setTimeout(pollStats, 30000));
+})();
 </script>
-</body></html>
+</body>
+</html>
