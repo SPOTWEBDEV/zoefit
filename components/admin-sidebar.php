@@ -49,15 +49,15 @@ try {
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Draws
     </a>
+    <a href="<?= APP_URL ?>/admin/winners.php" class="nav-item <?= $aPage==='winners'?'active':'' ?>">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+      Winners
+    </a>
 
     <div class="px-4 pt-3 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Content</div>
     <a href="<?= APP_URL ?>/admin/slides.php" class="nav-item <?= $aPage==='slides'?'active':'' ?>">
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       Banners &amp; Slides
-    </a>
-    <a href="<?= APP_URL ?>/admin/services.php" class="nav-item <?= $aPage==='services'?'active':'' ?>">
-      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-      Services
     </a>
 
     <div class="px-4 pt-3 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">System</div>
@@ -82,7 +82,8 @@ try {
     </a>
   </div>
 </nav>
-<div class="fixed inset-0 bg-black/60 z-40 md:hidden hidden" id="admin-overlay" onclick="this.classList.add('hidden');document.getElementById('admin-sidebar').classList.remove('open')"></div>
+<div class="fixed inset-0 bg-black/60 z-40 md:hidden hidden" id="admin-overlay"
+     onclick="this.classList.add('hidden');document.getElementById('admin-sidebar').classList.remove('open')"></div>
 <script>
 function toggleSidebar(){
   document.getElementById('admin-sidebar').classList.toggle('open');
