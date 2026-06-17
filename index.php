@@ -16,7 +16,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ZoeFeeds — Loyalty Reward & Raffle Platform</title>
-  <meta name="description" content="ZoeFeeds is Nigeria's official loyalty reward and raffle draw platform. Redeem codes, enter draws, win amazing prizes — fair, transparent and compliant.">
+  <meta name="description" content="ZoeFeeds is  official loyalty reward and raffle draw platform. Redeem codes, enter draws, win amazing prizes — fair, transparent and compliant.">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -115,7 +115,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       <!-- Left -->
       <div>
         <div class="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-2 text-sm font-semibold text-orange-400 mb-6">
-          <span class="pulse-dot"></span> Nigeria's Official Loyalty Reward Platform
+          <span class="pulse-dot"></span> Official Loyalty Reward Platform
         </div>
         <h1 class="text-5xl md:text-6xl lg:text-7xl font-black leading-[1.05] mb-6 tracking-tight">
           Redeem.<br>
@@ -210,7 +210,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 ====================================================== -->
 <div class="bg-orange-500/8 border-y border-orange-500/15 py-3 ticker-wrap">
   <div class="ticker gap-0">
-    <?php $items=['🎯 Raffle Draw Platform','✅ Verified &amp; Compliant','🏆 Life-Changing Prizes','🔒 Secure &amp; Transparent','🎟️ Free Code Redemption','📱 Airtime &amp; Data Soon','⚡ Utility Bills Soon','🇳🇬 Proudly Nigerian'];
+    <?php $items=['🎯 Raffle Draw Platform','✅ Verified &amp; Compliant','🏆 Life-Changing Prizes','🔒 Secure &amp; Transparent','🎟️ Free Code Redemption','📱 Airtime &amp; Data Soon','⚡ Utility Bills Soon'];
     for($i=0;$i<4;$i++) foreach($items as $it): ?>
     <span class="text-orange-300/80 font-medium text-sm px-8 whitespace-nowrap"><?= $it ?></span>
     <span class="text-orange-500/30 text-xl px-2">·</span>
@@ -355,7 +355,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           Our aim is to <strong class="text-white">reward and appreciate loyal customers</strong> through a fair, transparent, and compliant promotional reward program while providing access to valuable products and services.
         </p>
         <p class="text-gray-400 leading-relaxed mb-6">
-          The Promotion is intended solely as a <strong class="text-white">customer appreciation initiative</strong> and shall not be construed as a gambling, betting, or wagering activity. All draws are conducted in accordance with applicable Nigerian laws and regulatory approvals.
+          The Promotion is intended solely as a <strong class="text-white">customer appreciation initiative</strong> and shall not be construed as a gambling, betting, or wagering activity. All draws are conducted in accordance with applicable  laws and regulatory approvals.
         </p>
         <div class="flex flex-wrap gap-3">
           <a href="<?= APP_URL ?>/user/terms.php" class="btn btn-secondary">📄 Read Full T&amp;C</a>
@@ -364,7 +364,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       </div>
       <div class="grid grid-cols-2 gap-4">
         <?php $vals=[
-          ['🔒','Secure','End-to-end account security and data protection under Nigerian law.'],
+          ['🔒','Secure','End-to-end account security and data protection'],
           ['⚖️','Fair','Equal chance for every valid entry. Certified random selection process.'],
           ['👁️','Transparent','Live draw reveals. Every digit shown publicly in real-time.'],
           ['✅','Verified','All winners independently verified before prizes are awarded.'],
@@ -583,7 +583,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <div class="max-w-3xl mx-auto px-4 text-center relative z-10">
     <div class="text-6xl mb-5">🎯</div>
     <h2 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ready to Start Winning?</h2>
-    <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands of Nigerians participating in ZoeFeeds' fair and transparent reward draws. Create your free account today.</p>
+    <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands of  participating in ZoeFeeds' fair and transparent reward draws. Create your free account today.</p>
     <div class="flex flex-wrap gap-4 justify-center">
       <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">🎟️ Create Free Account</a>
       <a href="<?= APP_URL ?>/user/login.php"    class="btn btn-secondary px-10 py-5 text-lg font-bold">🔑 Log In</a>
@@ -605,7 +605,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           <div class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center font-black text-white text-sm">Z</div>
           <span class="font-bold text-lg">Zoe<span class="text-orange-500">Feeds</span></span>
         </div>
-        <p class="text-gray-500 text-sm leading-relaxed mb-4">Nigeria's loyalty reward and raffle eligibility platform. Fair. Transparent. Compliant.</p>
+        <p class="text-gray-500 text-sm leading-relaxed mb-4">loyalty reward and raffle eligibility platform. Fair. Transparent. Compliant.</p>
         <div class="text-xs text-gray-600">Official Website:<br><span class="text-gray-400">www.zoefeeds.com</span></div>
       </div>
 
@@ -639,7 +639,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <div class="mt-5 space-y-1 text-xs text-gray-500">
           <div>📧 support@zoefeeds.com</div>
           <div>🌐 www.zoefeeds.com</div>
-          <div>📍 Nigeria</div>
         </div>
       </div>
 
@@ -653,7 +652,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       </div>
     </div>
     <div class="text-center mt-6 text-xs text-gray-700">
-      The ZoeFeeds Reward Draw is a customer appreciation initiative operating under applicable Nigerian laws. Not a gambling or betting service.
+      The ZoeFeeds Reward Draw is a customer appreciation initiative operating under applicable  laws. Not a gambling or betting service.
     </div>
   </div>
 </footer>

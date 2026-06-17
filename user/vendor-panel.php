@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 $auth = requireUser(); $userId = $auth['id'];
 $db   = getDB();
+
+// Only active vendors can access this page
 $stmt = $db->prepare("SELECT * FROM users WHERE id=? AND is_vendor=1 AND vendor_status='active'");
 $stmt->execute([$userId]); $user = $stmt->fetch();
 if (!$user) redirect(APP_URL.'/user/vendor-apply.php');
@@ -10,69 +12,37 @@ if (!$user) redirect(APP_URL.'/user/vendor-apply.php');
 $tab = $_GET['tab'] ?? 'overview';
 $msg = $err = '';
 
-// ── Generate API Keys ─────────────────────────────────────
+// ── Generate API Keys ──────────────────────────────────────
 if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME]??'') && ($_POST['action']??'')==='generate_keys') {
-  $pubKey = 'zf_pub_' . bin2hex(random_bytes(16));        // 39 chars
-  $secKey = 'zf_sec_' . bin2hex(random_bytes(32));        // 71 chars
+  $pubKey = 'zf_pub_'.bin2hex(random_bytes(16));
+  $secKey = 'zf_sec_'.bin2hex(random_bytes(32));
   $db->prepare("UPDATE users SET vendor_public_key=?, vendor_secret_key=? WHERE id=?")
      ->execute([$pubKey, password_hash($secKey, PASSWORD_BCRYPT), $userId]);
-  // Show secret key ONCE — store in session temporarily
   $_SESSION['vendor_new_secret'] = $secKey;
-  auditLog('user',$userId,'generate_api_keys','Vendor generated new API keys');
+  auditLog('user', $userId, 'generate_api_keys', 'Vendor API keys generated');
   $msg = 'New API keys generated. Copy your secret key now — it will not be shown again.';
   $tab = 'keys';
-  $stmt=$db->prepare("SELECT * FROM users WHERE id=?");$stmt->execute([$userId]);$user=$stmt->fetch();
+  $stmt = $db->prepare("SELECT * FROM users WHERE id=?"); $stmt->execute([$userId]); $user = $stmt->fetch();
 }
 
-// ── Credit a customer ─────────────────────────────────────
-if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME]??'') && ($_POST['action']??'')==='credit') {
-  $phone  = trim($_POST['phone']??'');
-  $codeId = (int)($_POST['code_id']??0);
-  $normalized = normalizePhone($phone);
-  $recip = $db->prepare("SELECT id,full_name,status FROM users WHERE phone=?");
-  $recip->execute([$normalized]); $recip=$recip->fetch();
-  if (!$recip||$recip['status']!=='active') { $err='User not found or inactive.'; }
-  elseif (!$codeId) { $err='Select a code.'; }
-  else {
-    $code=$db->prepare("SELECT * FROM codes WHERE id=? AND assigned_vendor=? AND status='assigned' FOR UPDATE");
-    // need transaction
-    $db->beginTransaction();
-    try {
-      $code->execute([$codeId,$userId]); $code=$code->fetch();
-      if (!$code) throw new \Exception('Code not available.');
-      $db->prepare("UPDATE codes SET status='redeemed',current_owner=?,redeemed_at=NOW() WHERE id=?")->execute([$recip['id'],$codeId]);
-      $db->prepare("INSERT INTO code_redemptions (code_id,user_id,vendor_id) VALUES (?,?,?)")->execute([$codeId,$recip['id'],$userId]);
-      $db->prepare("UPDATE users SET balance=balance+1 WHERE id=?")->execute([$recip['id']]);
-      $db->prepare("UPDATE users SET vendor_code_balance=vendor_code_balance-1 WHERE id=?")->execute([$userId]);
-      $db->prepare("INSERT INTO transactions (user_id,type,category,amount,code_id,description) VALUES (?,?,?,?,?,?)")
-         ->execute([$recip['id'],'credit','vendor_credit',1,$codeId,'Code credited by vendor '.$user['full_name']]);
-      createNotification($recip['id'],'Code Received','A vendor credited a raffle code to your wallet.','vendor');
-      auditLog('user',$userId,'vendor_credit_customer','Code '.$code['code'].' credited to user '.$recip['id'],'code',$codeId);
-      $db->commit();
-      $msg = '✅ Code credited to '.$recip['full_name'].' successfully.';
-      $tab='credit';
-      $stmt=$db->prepare("SELECT * FROM users WHERE id=?");$stmt->execute([$userId]);$user=$stmt->fetch();
-    } catch(\Exception $e) { $db->rollBack(); $err=$e->getMessage(); }
-  }
-}
+// ── Inventory stats ────────────────────────────────────────
+$invRaw = $db->prepare("SELECT status, COUNT(*) cnt FROM codes WHERE assigned_vendor=? GROUP BY status");
+$invRaw->execute([$userId]);
+$inv = ['assigned'=>0,'redeemed'=>0,'reserved'=>0,'used'=>0];
+foreach ($invRaw->fetchAll() as $r) { if (isset($inv[$r['status']])) $inv[$r['status']] = $r['cnt']; }
 
-// ── Inventory ─────────────────────────────────────────────
-$invStmt = $db->prepare("SELECT status, COUNT(*) as cnt FROM codes WHERE assigned_vendor=? GROUP BY status");
-$invStmt->execute([$userId]); $inv=['assigned'=>0,'distributed'=>0,'redeemed'=>0,'used'=>0];
-foreach($invStmt->fetchAll() as $r) $inv[$r['status']] = $r['cnt'];
-
-// ── Recent distributions ──────────────────────────────────
-$recent=$db->prepare("SELECT r.redeemed_at, u.full_name, u.phone, c.code FROM code_redemptions r JOIN users u ON r.user_id=u.id JOIN codes c ON r.code_id=c.id WHERE r.vendor_id=? ORDER BY r.redeemed_at DESC LIMIT 8");
-$recent->execute([$userId]); $recent=$recent->fetchAll();
-
-// ── Available codes for dropdown ─────────────────────────
-$avail=$db->prepare("SELECT id,code FROM codes WHERE assigned_vendor=? AND status='assigned' LIMIT 200");
-$avail->execute([$userId]); $avail=$avail->fetchAll();
+// ── Recent distributions ───────────────────────────────────
+$recent = $db->prepare("SELECT r.redeemed_at, u.full_name, u.phone, c.code
+  FROM code_redemptions r
+  JOIN users u ON r.user_id=u.id
+  JOIN codes c ON r.code_id=c.id
+  WHERE r.vendor_id=? ORDER BY r.redeemed_at DESC LIMIT 6");
+$recent->execute([$userId]); $recent = $recent->fetchAll();
 
 $newSecret = $_SESSION['vendor_new_secret'] ?? null;
 unset($_SESSION['vendor_new_secret']);
 
-$currentPage='vendor-panel'; $pageTitle='Vendor Panel';
+$currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,7 +52,7 @@ $currentPage='vendor-panel'; $pageTitle='Vendor Panel';
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
-  <style>*{font-family:'Poppins',sans-serif!important}.key-box{font-family:'Courier New',monospace!important;word-break:break-all;}</style>
+  <style>*{font-family:'Poppins',sans-serif!important}code,pre{font-family:'Courier New',monospace!important}</style>
 </head>
 <body class="bg-[#0a0f1a] text-white">
 <?php include __DIR__ . '/../components/user-sidebar.php'; ?>
@@ -91,9 +61,10 @@ $currentPage='vendor-panel'; $pageTitle='Vendor Panel';
     <button onclick="toggleSidebar()" class="md:hidden text-gray-400 text-2xl mr-3">☰</button>
     <div>
       <h1 class="text-lg font-bold">Vendor Panel</h1>
-      <div class="text-xs text-purple-400"><?= e($user['vendor_business_name']??'') ?></div>
+      <div class="text-xs text-purple-400 font-medium"><?= e($user['vendor_business_name'] ?? '') ?></div>
     </div>
   </div>
+
   <div class="p-4 md:p-6 pb-24 md:pb-6">
 
     <?php if($msg): ?><div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm"><?= e($msg) ?></div><?php endif; ?>
@@ -101,173 +72,303 @@ $currentPage='vendor-panel'; $pageTitle='Vendor Panel';
 
     <!-- Tab Nav -->
     <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
-      <?php foreach(['overview'=>'📊 Overview','credit'=>'🎟️ Credit User','keys'=>'🔑 API Keys','history'=>'📋 History'] as $t=>$l): ?>
+      <?php foreach(['overview'=>'📊 Overview','codes'=>'🎟️ My Codes','keys'=>'🔑 API Keys','history'=>'📋 History'] as $t=>$l): ?>
       <a href="?tab=<?= $t ?>" class="btn btn-sm <?= $tab===$t?'btn-primary':'btn-secondary' ?> whitespace-nowrap"><?= $l ?></a>
       <?php endforeach; ?>
     </div>
 
-    <!-- ── OVERVIEW ───────────────────────────────────────── -->
-    <?php if($tab==='overview'): ?>
+    <!-- ── OVERVIEW ──────────────────────────────────────── -->
+    <?php if ($tab === 'overview'): ?>
+
     <div class="balance-card mb-5">
-      <div class="text-sm text-orange-200">Code Inventory</div>
-      <div class="text-4xl font-black mt-1"><?= $user['vendor_code_balance'] ?></div>
-      <div class="text-xs text-orange-200 mt-1">Available to distribute</div>
+      <div class="text-sm text-orange-200">Available Code Inventory</div>
+      <div class="text-5xl font-black mt-1"><?= number_format($user['vendor_code_balance']) ?></div>
+      <div class="text-xs text-orange-200 mt-1">codes assigned to your account</div>
     </div>
-    <div class="grid grid-cols-2 gap-3 mb-5">
-      <?php $ics=[['Assigned to You','assigned','text-blue-400'],['Distributed','redeemed','text-green-400'],['In Draws','reserved','text-yellow-400'],['Consumed','used','text-gray-400']]; ?>
-      <?php foreach($ics as $ic): ?>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <?php foreach([
+        ['Available', $user['vendor_code_balance'], 'text-orange-400'],
+        ['Distributed', $inv['redeemed'],            'text-green-400'],
+        ['In Draws',    $inv['reserved'],             'text-yellow-400'],
+        ['Used Up',     $inv['used'],                 'text-gray-500'],
+      ] as $ic): ?>
       <div class="card p-4 text-center">
-        <div class="text-2xl font-black <?= $ic[2] ?>"><?= $inv[$ic[1]]??0 ?></div>
+        <div class="text-2xl font-black <?= $ic[2] ?>"><?= number_format($ic[1]) ?></div>
         <div class="text-xs text-gray-500 mt-1"><?= $ic[0] ?></div>
       </div>
       <?php endforeach; ?>
     </div>
+
+    <!-- Quick action cards -->
+    <div class="grid sm:grid-cols-3 gap-3 mb-5">
+      <a href="?tab=codes" class="card p-4 flex items-center gap-3 hover:border-orange-500/30 transition-colors">
+        <div class="w-10 h-10 bg-orange-500/15 rounded-xl flex items-center justify-center text-xl">🎟️</div>
+        <div><div class="font-semibold text-sm">View &amp; Download Codes</div><div class="text-xs text-gray-500">Select and export</div></div>
+      </a>
+      <a href="<?= APP_URL ?>/user/vendor-transfer.php" class="card p-4 flex items-center gap-3 hover:border-cyan-500/30 transition-colors">
+        <div class="w-10 h-10 bg-cyan-500/15 rounded-xl flex items-center justify-center text-xl">↔️</div>
+        <div><div class="font-semibold text-sm">Transfer to Vendor</div><div class="text-xs text-gray-500">Send codes to another vendor</div></div>
+      </a>
+      <a href="?tab=keys" class="card p-4 flex items-center gap-3 hover:border-purple-500/30 transition-colors">
+        <div class="w-10 h-10 bg-purple-500/15 rounded-xl flex items-center justify-center text-xl">🔑</div>
+        <div><div class="font-semibold text-sm">API Keys</div><div class="text-xs text-gray-500">Integration access</div></div>
+      </a>
+    </div>
+
+    <!-- Recent distributions -->
     <div class="card">
-      <div class="p-4 border-b border-white/5 font-semibold text-sm">Recent Distributions</div>
-      <?php foreach(array_slice($recent,0,5) as $r): ?>
-      <div class="flex items-center gap-3 p-4 border-b border-white/5 last:border-0">
-        <div class="w-9 h-9 bg-orange-500/15 rounded-xl flex items-center justify-center font-bold text-orange-400"><?= strtoupper($r['full_name'][0]) ?></div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium"><?= e($r['full_name']) ?></div>
-          <div class="text-xs text-gray-400 font-mono"><?= e($r['code']) ?></div>
+      <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/5">
+        <h2 class="font-bold text-sm">Recent Distributions</h2>
+        <a href="?tab=history" class="text-orange-400 text-xs hover:underline">View all →</a>
+      </div>
+      <?php foreach ($recent as $r): ?>
+      <div class="flex items-center gap-3 px-5 py-3 border-b border-white/5 last:border-0">
+        <div class="w-9 h-9 bg-orange-500/15 rounded-xl flex items-center justify-center font-bold text-orange-400 flex-shrink-0">
+          <?= strtoupper($r['full_name'][0]) ?>
         </div>
-        <div class="text-xs text-gray-500"><?= date('M j, g:ia',strtotime($r['redeemed_at'])) ?></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate"><?= e($r['full_name']) ?></div>
+          <code class="text-xs text-orange-400"><?= e($r['code']) ?></code>
+        </div>
+        <div class="text-xs text-gray-500 flex-shrink-0"><?= date('M j, g:ia', strtotime($r['redeemed_at'])) ?></div>
       </div>
       <?php endforeach; ?>
-      <?php if(!$recent): ?><div class="p-8 text-center text-gray-500 text-sm">No distributions yet</div><?php endif; ?>
+      <?php if (!$recent): ?>
+      <div class="p-8 text-center text-gray-500 text-sm">No distributions yet. Codes are distributed when users redeem them.</div>
+      <?php endif; ?>
     </div>
 
-    <!-- ── CREDIT USER ────────────────────────────────────── -->
-    <?php elseif($tab==='credit'): ?>
-    <div class="card p-6 max-w-lg mx-auto">
-      <h2 class="font-bold text-lg mb-5">Credit Raffle Code to Customer</h2>
-      <form method="POST">
-        <?= csrfField() ?><input type="hidden" name="action" value="credit">
-        <div class="form-group">
-          <label class="form-label">Customer Phone Number</label>
-          <div class="flex gap-3">
-            <input type="tel" name="phone" id="credit-phone" class="form-control" placeholder="08012345678" data-phone>
-            <button type="button" onclick="lookupCustomer()" class="btn btn-secondary px-4 flex-shrink-0">Find</button>
+    <!-- ── MY CODES (download) ───────────────────────────── -->
+    <?php elseif ($tab === 'codes'): ?>
+
+    <?php
+    // Pagination for codes tab
+    $cpg = max(1,(int)($_GET['pg']??1)); $cper=50; $coffset=($cpg-1)*$cper;
+    $totalCodes = $db->prepare("SELECT COUNT(*) FROM codes WHERE assigned_vendor=? AND status='assigned'");
+    $totalCodes->execute([$userId]); $totalCodes=(int)$totalCodes->fetchColumn();
+    $totalCodePages = ceil($totalCodes/$cper);
+    $codeRows = $db->prepare("SELECT id,code,batch_id,generated_at FROM codes WHERE assigned_vendor=? AND status='assigned' ORDER BY generated_at DESC LIMIT $cper OFFSET $coffset");
+    $codeRows->execute([$userId]); $codeRows=$codeRows->fetchAll();
+    ?>
+
+    <div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="font-bold text-lg">Unredeemed Codes</h2>
+        <div class="text-sm text-gray-400"><?= number_format($totalCodes) ?> available codes</div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="selectAllCodes()" class="btn btn-secondary btn-sm">☑ Select All</button>
+        <button onclick="deselectAllCodes()" class="btn btn-secondary btn-sm">☐ Clear</button>
+        <button onclick="downloadCodes('txt')" class="btn btn-secondary btn-sm text-cyan-400">⬇ .txt</button>
+        <button onclick="downloadCodes('csv')" class="btn btn-primary btn-sm">⬇ .csv</button>
+        <button onclick="copyCodes()" class="btn btn-secondary btn-sm text-green-400">📋 Copy</button>
+      </div>
+    </div>
+
+    <!-- Selection bar -->
+    <div id="code-sel-bar" class="hidden mb-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+      <span class="text-sm text-orange-300 font-semibold"><span id="code-sel-count">0</span> selected</span>
+      <div class="flex gap-2">
+        <button onclick="downloadCodes('txt')" class="btn btn-sm btn-secondary text-xs text-cyan-400">⬇ .txt</button>
+        <button onclick="downloadCodes('csv')" class="btn btn-sm btn-primary text-xs">⬇ .csv</button>
+        <button onclick="copyCodes()" class="btn btn-sm btn-secondary text-xs text-green-400">📋 Copy</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- Table header -->
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-white/2">
+        <input type="checkbox" id="chk-all-codes" class="w-4 h-4 accent-orange-500" onchange="toggleAllCodes(this)">
+        <div class="flex-1 grid grid-cols-3 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <span>Code</span><span class="hidden sm:block">Batch</span><span class="hidden md:block">Generated</span>
+        </div>
+      </div>
+      <?php if ($codeRows): ?>
+      <div class="divide-y divide-white/5 max-h-[520px] overflow-y-auto">
+        <?php foreach($codeRows as $cr): ?>
+        <label class="flex items-center gap-3 px-4 py-3 hover:bg-white/3 cursor-pointer transition-colors">
+          <input type="checkbox" class="code-pick w-4 h-4 accent-orange-500" value="<?= e($cr['code']) ?>" onchange="updateCodeSel()">
+          <div class="flex-1 grid grid-cols-3 gap-4 min-w-0">
+            <code class="text-orange-400 font-bold tracking-widest text-sm"><?= e($cr['code']) ?></code>
+            <span class="text-xs text-gray-500 truncate hidden sm:block"><?= e(substr($cr['batch_id']??'—',0,22)) ?></span>
+            <span class="text-xs text-gray-500 hidden md:block"><?= date('M j, Y', strtotime($cr['generated_at'])) ?></span>
           </div>
-          <div id="customer-info" class="mt-3 hidden"></div>
+        </label>
+        <?php endforeach; ?>
+      </div>
+      <?php else: ?>
+      <div class="p-12 text-center"><div class="text-4xl mb-3">📭</div><div class="text-gray-500 text-sm">No unredeemed codes. Contact admin to assign codes to your account.</div></div>
+      <?php endif; ?>
+      <?php if ($totalCodePages > 1): ?>
+      <div class="flex items-center justify-between px-4 py-3 border-t border-white/5">
+        <div class="text-xs text-gray-500">Page <?= $cpg ?>/<?= $totalCodePages ?></div>
+        <div class="flex gap-2">
+          <?php if($cpg>1): ?><a href="?tab=codes&pg=<?=$cpg-1?>" class="btn btn-sm btn-secondary text-xs">← Prev</a><?php endif; ?>
+          <?php if($cpg<$totalCodePages): ?><a href="?tab=codes&pg=<?=$cpg+1?>" class="btn btn-sm btn-secondary text-xs">Next →</a><?php endif; ?>
         </div>
-        <div class="form-group">
-          <label class="form-label">Select Code to Distribute</label>
-          <select name="code_id" class="form-control">
-            <option value="">Select a code…</option>
-            <?php foreach($avail as $a): ?>
-            <option value="<?= $a['id'] ?>"><?= e($a['code']) ?></option>
-            <?php endforeach; ?>
-          </select>
-          <div class="text-xs text-gray-500 mt-1"><?= count($avail) ?> codes available</div>
-        </div>
-        <button type="submit" class="btn btn-primary w-full py-3">Credit Code to Customer</button>
-      </form>
+      </div>
+      <?php endif; ?>
     </div>
 
-    <!-- ── API KEYS ───────────────────────────────────────── -->
-    <?php elseif($tab==='keys'): ?>
+    <!-- ── API KEYS ──────────────────────────────────────── -->
+    <?php elseif ($tab === 'keys'): ?>
+
     <div class="max-w-xl mx-auto space-y-4">
-      <?php if($newSecret): ?>
+      <?php if ($newSecret): ?>
       <div class="bg-green-500/10 border-2 border-green-500/40 rounded-xl p-5">
-        <div class="flex items-center gap-2 text-green-400 font-bold mb-3">⚠️ Copy Your Secret Key NOW</div>
-        <div class="text-xs text-gray-300 mb-3">This is the <strong class="text-white">only time</strong> your secret key will be displayed. Store it securely.</div>
-        <div class="key-box bg-black/40 rounded-lg p-3 text-green-400 text-xs break-all select-all mb-3"><?= e($newSecret) ?></div>
-        <button onclick="copyToClipboard('<?= e($newSecret) ?>')" class="btn btn-success btn-sm w-full">📋 Copy Secret Key</button>
+        <div class="text-green-400 font-bold mb-2 flex items-center gap-2">⚠️ Copy Your Secret Key NOW</div>
+        <p class="text-xs text-gray-300 mb-3">This is shown <strong class="text-white">only once</strong>. Store it somewhere safe immediately.</p>
+        <div class="bg-black/40 rounded-lg p-3 text-green-300 text-xs break-all select-all font-mono mb-3"><?= e($newSecret) ?></div>
+        <button onclick="copyText('<?= e($newSecret) ?>')" class="btn btn-sm w-full" style="background:#22c55e;color:white">📋 Copy Secret Key</button>
       </div>
       <?php endif; ?>
 
       <div class="card p-6">
         <h2 class="font-bold text-lg mb-5">🔑 API Keys</h2>
-        <?php if($user['vendor_public_key']): ?>
-        <div class="space-y-4">
+        <?php if ($user['vendor_public_key']): ?>
+        <div class="space-y-4 mb-5">
           <div>
             <label class="form-label">Public Key</label>
             <div class="flex gap-2">
-              <div class="key-box flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-400 break-all"><?= e($user['vendor_public_key']) ?></div>
-              <button onclick="copyToClipboard('<?= e($user['vendor_public_key']) ?>')" class="btn btn-secondary btn-sm flex-shrink-0">📋</button>
+              <div class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-cyan-400 break-all font-mono"><?= e($user['vendor_public_key']) ?></div>
+              <button onclick="copyText('<?= e($user['vendor_public_key']) ?>')" class="btn btn-secondary btn-sm flex-shrink-0">📋</button>
             </div>
-            <div class="text-xs text-gray-500 mt-1">Share this publicly — used to identify your vendor account</div>
+            <div class="text-xs text-gray-500 mt-1">Safe to share. Used in API request headers as <code>X-ZF-Public-Key</code>.</div>
           </div>
           <div>
             <label class="form-label">Secret Key</label>
-            <div class="key-box bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-500">
-              <?= $newSecret ? e($newSecret) : '••••••••••••••••••••••••••••••••••••' ?>
+            <div class="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-500 font-mono">
+              ••••••••••••••••••••••••••••••••••••••••
             </div>
-            <div class="text-xs text-gray-500 mt-1">Never share this key. Used for authenticated API calls.</div>
+            <div class="text-xs text-gray-500 mt-1">Never share this. Used as <code>X-ZF-Secret-Key</code> in API requests.</div>
           </div>
         </div>
-        <div class="mt-5 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs text-yellow-300">
-          ⚠️ Generating new keys will <strong>invalidate your existing keys</strong> immediately.
+        <div class="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs text-yellow-300 mb-4">
+          ⚠️ Regenerating keys will instantly invalidate your current keys. Any system using them will stop working immediately.
         </div>
         <?php else: ?>
-        <div class="text-center py-6">
-          <div class="text-4xl mb-3">🔑</div>
-          <div class="text-gray-400 mb-4">No API keys generated yet. Generate a key pair to integrate ZoeFeeds with your systems.</div>
+        <div class="text-center py-8 mb-4">
+          <div class="text-5xl mb-3">🔑</div>
+          <div class="text-gray-400 text-sm mb-2">No API keys generated yet.</div>
+          <div class="text-gray-500 text-xs">Generate a key pair to integrate ZoeFeeds with your systems.</div>
         </div>
         <?php endif; ?>
-        <form method="POST" class="mt-4" onsubmit="return confirm('<?= $user['vendor_public_key']?'Regenerate keys? Your existing keys will stop working immediately.':'Generate API keys?' ?>')">
+        <form method="POST" onsubmit="return confirm('<?= $user['vendor_public_key']?'Regenerate keys? Your current keys will stop working.':'Generate API keys?' ?>')">
           <?= csrfField() ?><input type="hidden" name="action" value="generate_keys">
           <button type="submit" class="btn btn-primary w-full py-3">
-            <?= $user['vendor_public_key'] ? '🔄 Regenerate Keys' : '⚡ Generate API Keys' ?>
+            <?= $user['vendor_public_key'] ? '🔄 Regenerate API Keys' : '⚡ Generate API Keys' ?>
           </button>
         </form>
       </div>
 
-      <!-- API Usage Guide -->
-      <div class="card p-6">
-        <h3 class="font-bold mb-3">📖 API Usage</h3>
-        <div class="space-y-3 text-sm text-gray-400">
-          <div><strong class="text-white">Authenticate:</strong> Send <code class="text-orange-400">X-ZF-Public-Key</code> and <code class="text-orange-400">X-ZF-Secret-Key</code> headers</div>
-          <div><strong class="text-white">Credit endpoint:</strong> <code class="text-cyan-400">POST <?= APP_URL ?>/api/vendor/credit</code></div>
-          <div><strong class="text-white">Inventory:</strong> <code class="text-cyan-400">GET <?= APP_URL ?>/api/vendor/inventory</code></div>
+      <div class="card p-5">
+        <h3 class="font-bold mb-3 text-sm">📖 Quick API Reference</h3>
+        <div class="space-y-2 text-xs text-gray-400">
+          <div><strong class="text-white">Base URL:</strong> <code class="text-orange-400"><?= APP_URL ?>/api/vendor/</code></div>
+          <div><strong class="text-white">Auth headers:</strong> <code class="text-cyan-400">X-ZF-Public-Key</code> + <code class="text-cyan-400">X-ZF-Secret-Key</code></div>
+          <div><strong class="text-white">List inventory:</strong> <code class="text-green-400">GET inventory</code></div>
+          <div><strong class="text-white">Transfer to vendor:</strong> <code class="text-green-400">POST transfer-vendor</code></div>
         </div>
+        <a href="<?= APP_URL ?>/docs/api.html" target="_blank" class="btn btn-secondary btn-sm w-full mt-3 text-center">📄 Full API Docs →</a>
       </div>
     </div>
 
-    <!-- ── HISTORY ─────────────────────────────────────────── -->
-    <?php elseif($tab==='history'): ?>
-    <div id="hist-container" class="space-y-3"></div>
-    <div id="hist-loader">
-      <?php for($i=0;$i<4;$i++): ?><div class="skeleton h-16 rounded-xl mb-2"></div><?php endfor; ?>
+    <!-- ── HISTORY ────────────────────────────────────────── -->
+    <?php elseif ($tab === 'history'): ?>
+
+    <?php
+    $hpg=max(1,(int)($_GET['hpg']??1)); $hper=20; $hoffset=($hpg-1)*$hper;
+    $hist=$db->prepare("SELECT r.redeemed_at, u.full_name, u.phone, c.code FROM code_redemptions r JOIN users u ON r.user_id=u.id JOIN codes c ON r.code_id=c.id WHERE r.vendor_id=? ORDER BY r.redeemed_at DESC LIMIT $hper OFFSET $hoffset");
+    $hist->execute([$userId]); $hist=$hist->fetchAll();
+    $histTotal=$db->prepare("SELECT COUNT(*) FROM code_redemptions WHERE vendor_id=?");
+    $histTotal->execute([$userId]); $histTotal=(int)$histTotal->fetchColumn();
+    $histPages=ceil($histTotal/$hper);
+    ?>
+    <div class="flex items-center justify-between mb-4">
+      <div><h2 class="font-bold">Distribution History</h2><div class="text-sm text-gray-400"><?= number_format($histTotal) ?> total distributions</div></div>
     </div>
+    <div class="card divide-y divide-white/5">
+      <?php foreach($hist as $h): ?>
+      <div class="flex items-center gap-3 p-4">
+        <div class="w-9 h-9 bg-orange-500/15 rounded-xl flex items-center justify-center font-bold text-orange-400 flex-shrink-0"><?= strtoupper($h['full_name'][0]) ?></div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-sm truncate"><?= e($h['full_name']) ?></div>
+          <div class="text-xs text-gray-400"><?= e(formatPhone($h['phone'])) ?> · <code class="text-orange-400"><?= e($h['code']) ?></code></div>
+        </div>
+        <div class="text-xs text-gray-500 flex-shrink-0"><?= date('M j, g:ia', strtotime($h['redeemed_at'])) ?></div>
+      </div>
+      <?php endforeach; ?>
+      <?php if(!$hist): ?><div class="p-10 text-center text-gray-500 text-sm">No distributions recorded yet.</div><?php endif; ?>
+    </div>
+    <?php if($histPages>1): ?>
+    <div class="flex justify-between items-center mt-4">
+      <div class="text-sm text-gray-400">Page <?=$hpg?>/<?=$histPages?></div>
+      <div class="flex gap-2">
+        <?php if($hpg>1): ?><a href="?tab=history&hpg=<?=$hpg-1?>" class="btn btn-sm btn-secondary">← Prev</a><?php endif; ?>
+        <?php if($hpg<$histPages): ?><a href="?tab=history&hpg=<?=$hpg+1?>" class="btn btn-sm btn-secondary">Next →</a><?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <?php endif; ?>
 
   </div>
 </div>
+
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
-async function lookupCustomer() {
-  const phone = document.getElementById('credit-phone').value;
-  const el = document.getElementById('customer-info');
-  el.classList.remove('hidden');
-  el.innerHTML = '<div class="text-gray-400 text-sm">Searching…</div>';
-  try {
-    const d = await ZF.get('<?= APP_URL ?>/ajax/lookup-user.php', {phone});
-    el.innerHTML = `<div class="p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-3">
-      <div class="w-9 h-9 bg-green-500/20 rounded-full flex items-center justify-center font-bold text-green-400">${d.name[0]}</div>
-      <div><div class="font-semibold text-sm">${d.name}</div><div class="text-xs text-gray-400">${d.phone}</div></div>
-      <span class="badge badge-success ml-auto">Found ✓</span>
-    </div>`;
-  } catch(e) { el.innerHTML=`<div class="text-red-400 text-sm p-3 bg-red-500/10 rounded-xl">${e.message}</div>`; }
-}
+// ── Code selection ──────────────────────────────────────────
+let pickedCodes = new Set();
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => Toast.success('Copied to clipboard!'));
+function updateCodeSel() {
+  pickedCodes.clear();
+  document.querySelectorAll('.code-pick:checked').forEach(c => pickedCodes.add(c.value));
+  const n = pickedCodes.size;
+  document.getElementById('code-sel-count').textContent = n;
+  document.getElementById('code-sel-bar').classList.toggle('hidden', n === 0);
+  const all = document.getElementById('chk-all-codes');
+  const total = document.querySelectorAll('.code-pick').length;
+  if (all) { all.checked = n === total && total > 0; all.indeterminate = n > 0 && n < total; }
 }
-
-<?php if ($tab==='history'): ?>
-new InfiniteScroll({
-  container: document.getElementById('hist-container'),
-  loader: document.getElementById('hist-loader'),
-  fetchUrl: '<?= APP_URL ?>/ajax/vendor-history.php',
-  params: { tab: 'distribution' },
-  renderItem: r => `<div class="card p-4 flex items-center gap-4">
-    <div class="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-xl">🎟️</div>
-    <div class="flex-1 min-w-0"><div class="font-medium text-sm">${r.user_name}</div><div class="text-xs text-gray-400">${r.phone} · <span class="font-mono text-orange-400">${r.code}</span></div></div>
-    <div class="text-xs text-gray-500 flex-shrink-0">${r.date}</div>
-  </div>`
-});
-<?php endif; ?>
+function toggleAllCodes(m) {
+  document.querySelectorAll('.code-pick').forEach(c => { c.checked = m.checked; m.checked ? pickedCodes.add(c.value) : pickedCodes.delete(c.value); });
+  updateCodeSel();
+}
+function selectAllCodes() {
+  document.querySelectorAll('.code-pick').forEach(c => { c.checked = true; pickedCodes.add(c.value); });
+  const all = document.getElementById('chk-all-codes'); if(all) all.checked = true;
+  updateCodeSel();
+}
+function deselectAllCodes() {
+  document.querySelectorAll('.code-pick').forEach(c => c.checked = false);
+  pickedCodes.clear(); updateCodeSel();
+  const all = document.getElementById('chk-all-codes'); if(all) all.checked = false;
+}
+function downloadCodes(format) {
+  if (!pickedCodes.size) { Toast.error('Select at least one code first.'); return; }
+  const codes = [...pickedCodes];
+  let content, filename, mime;
+  if (format === 'txt') {
+    content = codes.join('\n');
+    filename = 'zoefeeds-codes-' + new Date().toISOString().slice(0,10) + '.txt';
+    mime = 'text/plain';
+  } else {
+    content = 'Code,Platform\n' + codes.map(c => `${c},ZoeFeeds`).join('\n');
+    filename = 'zoefeeds-codes-' + new Date().toISOString().slice(0,10) + '.csv';
+    mime = 'text/csv';
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = filename; a.click();
+  Toast.success(`${codes.length} code(s) downloaded as .${format}`);
+}
+function copyCodes() {
+  if (!pickedCodes.size) { Toast.error('Select codes first.'); return; }
+  navigator.clipboard.writeText([...pickedCodes].join('\n')).then(() => Toast.success(`${pickedCodes.size} code(s) copied!`));
+}
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(() => Toast.success('Copied!'));
+}
 </script>
 </body></html>

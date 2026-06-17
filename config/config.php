@@ -1,10 +1,6 @@
 <?php
 require_once __DIR__ . '/database.php';
 
-define('ZF_V1_MODE',         true);
-define('ZF_SHOW_VENDOR_NAV', false);
-define('ZF_SHOW_TRANSFER',   false);
-
 define('APP_NAME',    'ZoeFeeds');
 define('APP_VERSION', '1.0.0');
 define('APP_TAGLINE', 'Loyalty Reward Platform');
