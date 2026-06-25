@@ -49,10 +49,12 @@ $currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title><?= e($pageTitle) ?> — <?= APP_NAME ?></title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
-  <style>*{font-family:'Poppins',sans-serif!important}code,pre{font-family:'Courier New',monospace!important}</style>
+  <style>*{font-family:'Poppins',sans-serif!important}code,pre{font-family:'Courier New',monospace!important}
+  @media print{body>*:not(#vendor-print-area){display:none!important}#vendor-print-area{display:block!important}@page{margin:10mm;size:A4}}
+  </style>
 </head>
 <body class="bg-[#0a0f1a] text-white">
 <?php include __DIR__ . '/../components/user-sidebar.php'; ?>
@@ -103,8 +105,8 @@ $currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
     <!-- Quick action cards -->
     <div class="grid sm:grid-cols-3 gap-3 mb-5">
       <a href="?tab=codes" class="card p-4 flex items-center gap-3 hover:border-orange-500/30 transition-colors">
-        <div class="w-10 h-10 bg-orange-500/15 rounded-xl flex items-center justify-center text-xl">🎟️</div>
-        <div><div class="font-semibold text-sm">View &amp; Download Codes</div><div class="text-xs text-gray-500">Select and export</div></div>
+        <div class="w-10 h-10 bg-orange-500/15 rounded-xl flex items-center justify-center text-xl">🖨️</div>
+        <div><div class="font-semibold text-sm">View &amp; Print Codes</div><div class="text-xs text-gray-500">Select &amp; print ticket slips</div></div>
       </a>
       <a href="<?= APP_URL ?>/user/vendor-transfer.php" class="card p-4 flex items-center gap-3 hover:border-cyan-500/30 transition-colors">
         <div class="w-10 h-10 bg-cyan-500/15 rounded-xl flex items-center justify-center text-xl">↔️</div>
@@ -152,6 +154,15 @@ $currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
     $codeRows->execute([$userId]); $codeRows=$codeRows->fetchAll();
     ?>
 
+    <!-- Hidden print area — same design as admin ticket slips -->
+    <div id="vendor-print-area" style="display:none">
+      <div style="font-family:'Arial',sans-serif;font-size:10px;color:#333;padding:6px 8px;border-bottom:2px solid #ea580c;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div><strong style="font-size:14px;color:#ea580c;">ZOEFEEDS</strong> &nbsp;— Raffle Code Tickets</div>
+        <div>Printed: <?= date('M j, Y g:i A') ?> &nbsp;·&nbsp; Cut along dotted lines &amp; distribute to customers</div>
+      </div>
+      <div id="vendor-ticket-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px;"></div>
+    </div>
+
     <div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
       <div>
         <h2 class="font-bold text-lg">Unredeemed Codes</h2>
@@ -160,9 +171,8 @@ $currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
       <div class="flex gap-2 flex-wrap">
         <button onclick="selectAllCodes()" class="btn btn-secondary btn-sm">☑ Select All</button>
         <button onclick="deselectAllCodes()" class="btn btn-secondary btn-sm">☐ Clear</button>
-        <button onclick="downloadCodes('txt')" class="btn btn-secondary btn-sm text-cyan-400">⬇ .txt</button>
-        <button onclick="downloadCodes('csv')" class="btn btn-primary btn-sm">⬇ .csv</button>
-        <button onclick="copyCodes()" class="btn btn-secondary btn-sm text-green-400">📋 Copy</button>
+        <button onclick="copyCodes()"       class="btn btn-secondary btn-sm text-green-400">📋 Copy</button>
+        <button onclick="printVendorTickets()" class="btn btn-primary btn-sm">🖨️ Print Tickets</button>
       </div>
     </div>
 
@@ -170,9 +180,8 @@ $currentPage = 'vendor-panel'; $pageTitle = 'Vendor Panel';
     <div id="code-sel-bar" class="hidden mb-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-xl flex items-center justify-between gap-3 flex-wrap">
       <span class="text-sm text-orange-300 font-semibold"><span id="code-sel-count">0</span> selected</span>
       <div class="flex gap-2">
-        <button onclick="downloadCodes('txt')" class="btn btn-sm btn-secondary text-xs text-cyan-400">⬇ .txt</button>
-        <button onclick="downloadCodes('csv')" class="btn btn-sm btn-primary text-xs">⬇ .csv</button>
-        <button onclick="copyCodes()" class="btn btn-sm btn-secondary text-xs text-green-400">📋 Copy</button>
+        <button onclick="copyCodes()"          class="btn btn-sm btn-secondary text-xs text-green-400">📋 Copy</button>
+        <button onclick="printVendorTickets()" class="btn btn-sm btn-primary text-xs">🖨️ Print Tickets</button>
       </div>
     </div>
 
@@ -345,27 +354,32 @@ function deselectAllCodes() {
   pickedCodes.clear(); updateCodeSel();
   const all = document.getElementById('chk-all-codes'); if(all) all.checked = false;
 }
-function downloadCodes(format) {
-  if (!pickedCodes.size) { Toast.error('Select at least one code first.'); return; }
-  const codes = [...pickedCodes];
-  let content, filename, mime;
-  if (format === 'txt') {
-    content = codes.join('\n');
-    filename = 'zoefeeds-codes-' + new Date().toISOString().slice(0,10) + '.txt';
-    mime = 'text/plain';
-  } else {
-    content = 'Code,Platform\n' + codes.map(c => `${c},ZoeFeeds`).join('\n');
-    filename = 'zoefeeds-codes-' + new Date().toISOString().slice(0,10) + '.csv';
-    mime = 'text/csv';
-  }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
-  a.download = filename; a.click();
-  Toast.success(`${codes.length} code(s) downloaded as .${format}`);
-}
 function copyCodes() {
   if (!pickedCodes.size) { Toast.error('Select codes first.'); return; }
   navigator.clipboard.writeText([...pickedCodes].join('\n')).then(() => Toast.success(`${pickedCodes.size} code(s) copied!`));
+}
+
+// Print tickets — same slip design as admin (dashed border, brand, formatted code, cut line)
+function printVendorTickets() {
+  if (!pickedCodes.size) { Toast.error('Select codes to print first.'); return; }
+  const grid = document.getElementById('vendor-ticket-grid');
+  grid.innerHTML = '';
+  [...pickedCodes].forEach(code => {
+    // Format 742081935627401 → 74208-19356-27401
+    const f = code.replace(/(\d{5})(\d{5})(\d{5})/, '$1-$2-$3');
+    grid.insertAdjacentHTML('beforeend', `
+      <div style="border:1.5px dashed #555;border-radius:6px;padding:10px 8px;text-align:center;background:#fff;color:#000;page-break-inside:avoid;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:1px;color:#ea580c;margin-bottom:4px;font-family:Arial,sans-serif;">ZOEFEEDS</div>
+        <div style="font-size:15px;font-weight:900;letter-spacing:3px;font-family:'Courier New',monospace;color:#1a1a1a;line-height:1.2;">${f}</div>
+        <div style="font-size:7px;color:#666;margin-top:4px;font-family:Arial,sans-serif;">Raffle Code — Redeem at zoefeeds.com</div>
+        <div style="font-size:7px;color:#999;margin-top:5px;border-top:1px dotted #ccc;padding-top:4px;font-family:Arial,sans-serif;">✂ Cut here · Do not sell · Free gift only</div>
+      </div>
+    `);
+  });
+  const area = document.getElementById('vendor-print-area');
+  area.style.display = 'block';
+  window.print();
+  setTimeout(() => area.style.display = 'none', 1500);
 }
 function copyText(t) {
   navigator.clipboard.writeText(t).then(() => Toast.success('Copied!'));

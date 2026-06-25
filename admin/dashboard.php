@@ -29,7 +29,7 @@ $aPage = 'dashboard';
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title>Admin Dashboard — <?= APP_NAME ?></title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>*{font-family:'Poppins',sans-serif!important}.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:18px;transition:all .2s;text-decoration:none;display:block}.stat-card:hover{border-color:rgba(249,115,22,.3);transform:translateY(-2px)}</style>

@@ -9,7 +9,7 @@ startAppSession();
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terms & Conditions — ZoeFeeds</title>
   <meta name="description" content="Official ZoeFeeds Reward Draw Terms and Conditions. Read the full rules, eligibility, draw process, and prize information.">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">

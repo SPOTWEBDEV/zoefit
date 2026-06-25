@@ -17,7 +17,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ZoeFeeds — Loyalty Reward & Raffle Platform</title>
   <meta name="description" content="ZoeFeeds is  official loyalty reward and raffle draw platform. Redeem codes, enter draws, win amazing prizes — fair, transparent and compliant.">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
