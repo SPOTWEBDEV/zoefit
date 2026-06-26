@@ -5,9 +5,9 @@ require_once __DIR__ . '/../config/database.php';
 startAppSession();
 $db = getDB();
 
-$totalVendors  = 30;
-$totalCodes    = 20;
-$totalRedeemed = 12;
+$totalVendors  = $db->query("SELECT COUNT(*) FROM vendors WHERE status='active'")->fetchColumn();
+$totalCodes    = $db->query("SELECT COUNT(*) FROM codes")->fetchColumn();
+$totalRedeemed = $db->query("SELECT COUNT(*) FROM codes WHERE status='redeemed'")->fetchColumn();
 ?><!DOCTYPE html>
 <html lang="en">
 <head>

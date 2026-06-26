@@ -18,7 +18,7 @@ $vPage='dashboard';
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Vendor Dashboard — <?= APP_NAME ?></title>
-  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>*{font-family:'Poppins',sans-serif!important}</style>
