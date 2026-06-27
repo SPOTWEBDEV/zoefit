@@ -6,10 +6,6 @@ $db   = getDB();
 $stmt = $db->prepare("SELECT * FROM users WHERE id=?");
 $stmt->execute([$userId]); $user = $stmt->fetch();
 
-// Sync session vendor fields
-$_SESSION['is_vendor']     = (bool)$user['is_vendor'];
-$_SESSION['vendor_status'] = $user['vendor_status'];
-
 $success = $error = '';
 
 if (isPost()) {
@@ -67,7 +63,6 @@ if (isPost()) {
 }
 
 // Stats
-$totalCodes   = $db->prepare("SELECT COUNT(*) FROM codes WHERE current_owner=? AND status NOT IN('used')")->execute([$userId]) ? 0 : 0;
 $s=$db->prepare("SELECT COUNT(*) FROM codes WHERE current_owner=? AND status NOT IN('used')");$s->execute([$userId]);$totalCodes=$s->fetchColumn();
 $s=$db->prepare("SELECT COUNT(*) FROM draw_entries WHERE user_id=?");$s->execute([$userId]);$totalEntries=$s->fetchColumn();
 $s=$db->prepare("SELECT COUNT(*) FROM draw_winners WHERE user_id=?");$s->execute([$userId]);$totalWins=$s->fetchColumn();
@@ -114,7 +109,6 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
     <!-- Profile Hero Card -->
     <div class="balance-card mb-5 relative overflow-hidden">
       <div class="flex items-center gap-5">
-        <!-- Avatar -->
         <div class="avatar-ring flex-shrink-0">
           <div class="w-16 h-16 bg-[#1a2235] rounded-full flex items-center justify-center text-2xl font-black text-orange-400">
             <?= strtoupper(mb_substr($user['full_name'],0,1)) ?>
@@ -125,11 +119,6 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
           <div class="text-orange-200 text-sm"><?= e(formatPhone($user['phone'])) ?></div>
           <div class="flex items-center gap-2 mt-2 flex-wrap">
             <span class="badge badge-success"><?= ucfirst($user['status']) ?></span>
-            <?php if($user['is_vendor']): ?>
-            <span class="badge" style="background:rgba(168,85,247,0.2);color:#a855f7">
-              🏪 <?= ucfirst($user['vendor_status']??'Vendor') ?>
-            </span>
-            <?php endif; ?>
             <span class="text-xs text-orange-200">Member since <?= date('M Y',strtotime($user['created_at'])) ?></span>
           </div>
         </div>
@@ -160,7 +149,7 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
       <?php endforeach; ?>
     </div>
 
-    <!-- ── Profile Tab ────────────────────────────────────── -->
+    <!-- ── Profile Tab ──────────────────────────────────── -->
     <form method="POST" id="section-profile" class="card p-5">
       <?= csrfField() ?><input type="hidden" name="action" value="profile">
       <div class="form-group">
@@ -186,7 +175,7 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
       <button type="submit" class="btn btn-primary w-full py-3">Save Profile</button>
     </form>
 
-    <!-- ── PIN Tab ─────────────────────────────────────────── -->
+    <!-- ── PIN Tab ──────────────────────────────────────── -->
     <form method="POST" id="section-pin" class="card p-5 hidden">
       <?= csrfField() ?><input type="hidden" name="action" value="pin">
       <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-5 text-sm text-blue-300">
@@ -219,12 +208,12 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
       <div class="text-xs text-gray-500 text-center mb-4">
         <?= $user['transfer_pin'] ? '✅ PIN already set — enter new PIN to update' : '⚠️ No PIN set yet — set one to enable transfers' ?>
       </div>
-      <button type="submit" id="pin-submit" class="btn btn-primary w-full py-3">
+      <button type="submit" class="btn btn-primary w-full py-3">
         <?= $user['transfer_pin'] ? 'Update Transfer PIN' : 'Set Transfer PIN' ?>
       </button>
     </form>
 
-    <!-- ── Password Tab ───────────────────────────────────── -->
+    <!-- ── Password Tab ─────────────────────────────────── -->
     <form method="POST" id="section-password" class="card p-5 hidden">
       <?= csrfField() ?><input type="hidden" name="action" value="password">
       <div class="form-group">
@@ -248,7 +237,7 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
       <button type="submit" class="btn btn-primary w-full py-3">Change Password</button>
     </form>
 
-    <!-- Quick links -->
+    <!-- Quick links — customer only -->
     <div class="grid grid-cols-2 gap-3 mt-5">
       <a href="<?= APP_URL ?>/user/transactions.php" class="card p-4 flex items-center gap-3 hover:border-orange-500/30">
         <div class="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center text-xl">📊</div>
@@ -256,21 +245,15 @@ $currentPage = 'profile'; $pageTitle = 'My Profile';
       </a>
       <a href="<?= APP_URL ?>/user/notifications.php" class="card p-4 flex items-center gap-3 hover:border-orange-500/30">
         <div class="w-10 h-10 bg-orange-500/15 rounded-xl flex items-center justify-center text-xl">🔔</div>
-        <div><div class="font-semibold text-sm">Notifications</div><div class="text-xs text-gray-500">Alerts & updates</div></div>
+        <div><div class="font-semibold text-sm">Notifications</div><div class="text-xs text-gray-500">Alerts &amp; updates</div></div>
       </a>
-      <?php if(!$user['is_vendor']): ?>
-      <a href="<?= APP_URL ?>/user/vendor-apply.php" class="card p-4 flex items-center gap-3 hover:border-purple-500/30 col-span-2">
-        <div class="w-10 h-10 bg-purple-500/15 rounded-xl flex items-center justify-center text-xl">🏪</div>
-        <div><div class="font-semibold text-sm text-purple-400">Become a Vendor</div><div class="text-xs text-gray-500">Apply to distribute raffle codes</div></div>
-      </a>
-      <?php endif; ?>
     </div>
+
   </div>
 </div>
 
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
-// Tab switching
 function showTab(t) {
   ['profile','pin','password'].forEach(s => {
     document.getElementById('section-'+s).classList.toggle('hidden', s!==t);
@@ -278,8 +261,6 @@ function showTab(t) {
     btn.className = 'tab-btn flex-1 py-2.5 rounded-lg text-sm font-medium '+(s===t?'bg-orange-500 text-white':'text-gray-400 hover:text-white');
   });
 }
-
-// PIN inputs
 function setupPinInputs(selector, hiddenId) {
   const chars = document.querySelectorAll(selector);
   chars.forEach((inp, i) => {
@@ -295,8 +276,6 @@ function setupPinInputs(selector, hiddenId) {
 }
 setupPinInputs('.pin-char',         'pin-hidden');
 setupPinInputs('.pin-confirm-char', 'pin-confirm-hidden');
-
-// Password toggle
 function togglePw(id) {
   const el = document.getElementById(id);
   el.type = el.type==='password' ? 'text' : 'password';

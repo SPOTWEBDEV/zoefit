@@ -39,7 +39,7 @@ $vPage='';
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title>Profile — <?= APP_NAME ?> Vendor</title>
-  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>*{font-family:'Poppins',sans-serif!important}</style>
@@ -51,7 +51,7 @@ $vPage='';
     <button onclick="toggleSidebar()" class="md:hidden text-gray-400 text-2xl mr-3">☰</button>
     <h1 class="text-xl font-bold">Vendor Profile</h1>
   </div>
-  <div class="p-6 max-w-lg mx-auto">
+  <div class="p-6 w-[80%] mx-auto">
     <?php if($msg): ?><div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm"><?= e($msg) ?></div><?php endif; ?>
     <?php if($err): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm"><?= e($err) ?></div><?php endif; ?>
 

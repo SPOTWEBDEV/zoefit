@@ -1,30 +1,6 @@
-
 <?php
-// components/user-sidebar.php
-// Vendor nav shows automatically when the logged-in user is an approved vendor.
-// No version flags. Logic is purely: is_vendor=1 AND vendor_status='active'
 
-$currentPage  = $currentPage ?? '';
-
-// Sync vendor status from DB into session on every page load
-$isVendor     = false;
-$vendorStatus = null;
-
-if (!empty($_SESSION['user_id'])) {
-  try {
-    $db = getDB();
-    $sv = $db->prepare("SELECT is_vendor, vendor_status FROM users WHERE id=?");
-    $sv->execute([$_SESSION['user_id']]);
-    $sv = $sv->fetch();
-    if ($sv) {
-      $_SESSION['is_vendor']     = (bool)$sv['is_vendor'];
-      $_SESSION['vendor_status'] = $sv['vendor_status'];
-    }
-  } catch(\Exception $e) {}
-
-  $isVendor     = !empty($_SESSION['is_vendor']);
-  $vendorStatus = $_SESSION['vendor_status'] ?? null;
-}
+$currentPage = $currentPage ?? '';
 ?>
 
 <!-- ── Desktop / Tablet Sidebar ─────────────────────────── -->
@@ -65,11 +41,6 @@ if (!empty($_SESSION['user_id'])) {
       My Codes
     </a>
 
-    <a href="<?= APP_URL ?>/user/services.php" class="nav-item <?= $currentPage==='services'?'active':'' ?>">
-      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-      Services
-    </a>
-
     <a href="<?= APP_URL ?>/user/transactions.php" class="nav-item <?= $currentPage==='transactions'?'active':'' ?>">
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       History
@@ -81,67 +52,6 @@ if (!empty($_SESSION['user_id'])) {
       <span id="notif-badge" class="ml-auto bg-orange-500 text-white text-xs rounded-full w-5 h-5 items-center justify-center font-bold" style="display:none"></span>
     </a>
 
-    <!-- ── VENDOR SECTION ────────────────────────────── -->
-    <!-- Shows only when this user is an approved vendor. -->
-    <!-- Shows "Become a Vendor" when user is not a vendor at all. -->
-    <!-- Shows "Under Review" when application is pending. -->
-
-    <?php if ($isVendor && $vendorStatus === 'active'): ?>
-
-      <div class="px-4 pt-4 pb-1 text-xs font-semibold text-orange-500/70 uppercase tracking-wider">
-        🏪 Vendor Panel
-      </div>
-
-      <a href="<?= APP_URL ?>/user/vendor-panel.php" class="nav-item <?= $currentPage==='vendor-panel'?'active':'' ?>">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-        Vendor Dashboard
-      </a>
-
-      <a href="<?= APP_URL ?>/user/vendor-panel.php?tab=codes" class="nav-item <?= ($currentPage==='vendor-panel'&&($_GET['tab']??'')==='codes')?'active':'' ?>">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Download My Codes
-      </a>
-
-      <a href="<?= APP_URL ?>/user/vendor-transfer.php" class="nav-item <?= $currentPage==='vendor-transfer'?'active':'' ?>">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-        Transfer to Vendor
-      </a>
-
-      <a href="<?= APP_URL ?>/user/vendor-panel.php?tab=keys" class="nav-item <?= ($currentPage==='vendor-panel'&&($_GET['tab']??'')==='keys')?'active':'' ?>">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-        API Keys
-      </a>
-
-      <a href="<?= APP_URL ?>/user/vendor-panel.php?tab=history" class="nav-item">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        Distribution History
-      </a>
-
-    <?php elseif ($isVendor && $vendorStatus === 'pending'): ?>
-
-      <div class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
-      <div class="mx-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs text-yellow-400 leading-relaxed">
-        ⏳ <strong>Application under review.</strong><br>You'll be notified once approved.
-      </div>
-
-    <?php elseif ($isVendor && in_array($vendorStatus, ['rejected','suspended'])): ?>
-
-      <div class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
-      <a href="<?= APP_URL ?>/user/vendor-apply.php" class="nav-item text-orange-400 hover:bg-orange-500/8">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        Re-apply as Vendor
-      </a>
-
-    <?php else: ?>
-      <!-- Not a vendor at all — show apply link -->
-      <div class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
-      <a href="<?= APP_URL ?>/user/vendor-apply.php" class="nav-item <?= $currentPage==='vendor-apply'?'active':'' ?> text-orange-400 hover:bg-orange-500/8">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-        Become a Vendor
-      </a>
-
-    <?php endif; ?>
-
     <!-- ── ACCOUNT ─────────────────────────────────────── -->
     <div class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Account</div>
 
@@ -149,6 +59,8 @@ if (!empty($_SESSION['user_id'])) {
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
       Profile
     </a>
+
+
 
   </div>
 
@@ -193,7 +105,7 @@ if (!empty($_SESSION['user_id'])) {
     </a>
 
     <a href="<?= APP_URL ?>/user/profile.php"
-       class="bnav-item <?= in_array($currentPage,['profile','notifications','transactions','services','codes'])?'bnav-active':'' ?>">
+       class="bnav-item <?= in_array($currentPage,['profile','notifications','transactions','codes'])?'bnav-active':'' ?>">
       <div class="relative">
         <svg class="bnav-icon" fill="<?= $currentPage==='profile'?'currentColor':'none' ?>" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         <span id="profile-notif-dot" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full hidden"></span>

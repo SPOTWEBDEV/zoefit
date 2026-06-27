@@ -69,6 +69,15 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <a href="#about"        class="text-gray-400 hover:text-white text-sm font-medium transition-colors">About</a>
         <a href="#faq"          class="text-gray-400 hover:text-white text-sm font-medium transition-colors">FAQ</a>
         <a href="<?= APP_URL ?>/user/terms.php" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Terms</a>
+        <!-- Vendor separator + link -->
+        <div class="w-px h-4 bg-white/10"></div>
+        <a href="<?= APP_URL ?>/vendor"
+           class="flex items-center gap-1.5 text-sm font-semibold transition-colors"
+           style="color:#a78bfa"
+           onmouseover="this.style.color='#c4b5fd'"
+           onmouseout="this.style.color='#a78bfa'">
+          🏪 Become a Vendor
+        </a>
       </div>
 
       <div class="flex items-center gap-2">
@@ -85,8 +94,16 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       <?php foreach(['#draws'=>'Draws','#how-it-works'=>'How It Works','#winners'=>'Winners','#about'=>'About','#faq'=>'FAQ'] as $h=>$l): ?>
       <a href="<?= $h ?>" class="block px-3 py-2 text-gray-400 hover:text-white text-sm rounded-lg hover:bg-white/5" onclick="document.getElementById('mob-menu').classList.add('hidden')"><?= $l ?></a>
       <?php endforeach; ?>
-      <a href="<?= APP_URL ?>/user/login.php"    class="block px-3 py-2 text-orange-400 font-semibold text-sm">Log In</a>
-      <a href="<?= APP_URL ?>/user/register.php" class="block px-3 py-2 text-white font-semibold text-sm bg-orange-500 rounded-xl text-center mt-1">Get Started Free</a>
+      <!-- Vendor link in mobile menu -->
+      <a href="<?= APP_URL ?>/vendor"
+         class="block px-3 py-2 text-sm font-semibold rounded-lg hover:bg-purple-500/10"
+         style="color:#a78bfa">
+        🏪 Become a Vendor
+      </a>
+      <div class="border-t border-white/5 mt-2 pt-2">
+        <a href="<?= APP_URL ?>/user/login.php"    class="block px-3 py-2 text-orange-400 font-semibold text-sm">Log In</a>
+        <a href="<?= APP_URL ?>/user/register.php" class="block px-3 py-2 text-white font-semibold text-sm bg-orange-500 rounded-xl text-center mt-1">Get Started Free</a>
+      </div>
     </div>
   </div>
 </nav>
