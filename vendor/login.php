@@ -83,6 +83,9 @@ if (isPost()) {
 
     <div class="text-center mt-5 space-y-2 text-sm text-gray-500">
       <div>New vendor? <a href="<?= APP_URL ?>/vendor/register.php" class="text-purple-400 hover:underline font-semibold">Apply to register →</a></div>
+      <div>
+         Do't remember your password  <a href="<?= APP_URL ?>/vendor/forgot-password.php" class="text-purple-400 hover:underline font-semibold">Click Here →</a>
+      </div>
     </div>
   </div>
 
