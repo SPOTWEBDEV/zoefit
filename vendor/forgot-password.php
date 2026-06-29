@@ -1,11 +1,8 @@
 <?php
 // vendor/forgot-password.php
-// 3-step flow — mirrors user version but:
-//   • Purple vendor identity
-//   • Queries vendors table, not users
-//   • password_resets.user_type = 'vendor'
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../mailer/index.php'; // ← smtpmailer()
 startAppSession();
 
 if (!empty($_SESSION['vendor_id'])) redirect(APP_URL . '/vendor/dashboard.php');
@@ -45,30 +42,105 @@ if (isPost() && ($_POST['form'] ?? '') === 'request') {
                 $pin     = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                 $expires = date('Y-m-d H:i:s', time() + 900);
 
+                // Invalidate previous unused PINs
                 $db->prepare(
-                    "UPDATE password_resets SET used=1 WHERE user_type='vendor' AND record_id=? AND used=0"
+                    "UPDATE password_resets SET used=1
+                     WHERE user_type='vendor' AND record_id=? AND used=0"
                 )->execute([$v['id']]);
 
+                // Insert new PIN
                 $db->prepare(
                     "INSERT INTO password_resets (user_type, record_id, email, pin_hash, expires_at)
                      VALUES ('vendor', ?, ?, ?, ?)"
                 )->execute([$v['id'], $email, password_hash($pin, PASSWORD_BCRYPT), $expires]);
 
+                // ── Purple vendor HTML email via smtpmailer() ──
                 $subject = 'Your ZoeFeeds Vendor Password Reset PIN';
-                $body    = "Hi {$v['full_name']},\n\n"
-                         . "Your vendor account password reset PIN is:\n\n"
-                         . "  $pin\n\n"
-                         . "This PIN expires in 15 minutes. Do not share it with anyone.\n\n"
-                         . "If you did not request a password reset, ignore this email.\n\n"
-                         . "— ZoeFeeds Vendor Team";
+                $body    = '
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#0a0f1a;font-family:Poppins,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0f1a;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#111827;border-radius:16px;border:1px solid rgba(124,58,237,0.22);overflow:hidden;">
 
-                mail($email, $subject, $body,
-                    "From: noreply@zoefeeds.com\r\nContent-Type: text/plain; charset=UTF-8");
+        <!-- Header — purple vendor identity -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 32px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-0.5px;">
+              Zoe<span style="color:#e9d5ff;">Feeds</span>
+            </div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:4px;letter-spacing:1px;">
+              VENDOR ACCOUNT
+            </div>
+          </td>
+        </tr>
 
-                $_SESSION['fp_vendor_step']  = 2;
-                $_SESSION['fp_vendor_email'] = $email;
-                $step    = 2;
-                $success = "A 6-digit PIN has been sent to <strong>".e($email)."</strong>. Check your inbox.";
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 8px;font-size:15px;color:#d1d5db;">Hi <strong style="color:#fff;">'.htmlspecialchars($v['full_name']).'</strong>,</p>
+            <p style="margin:0 0 24px;font-size:14px;color:#9ca3af;line-height:1.6;">
+              We received a request to reset your ZoeFeeds <strong style="color:#a78bfa;">vendor account</strong> password.
+              Use the PIN below to continue. It expires in <strong style="color:#a78bfa;">15 minutes</strong>.
+            </p>
+
+            <!-- PIN box — purple theme -->
+            <div style="background:#0a0f1a;border:2px dashed rgba(124,58,237,0.4);border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+              <div style="font-size:11px;color:#6b7280;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Your Vendor Reset PIN</div>
+              <div style="font-size:42px;font-weight:900;letter-spacing:12px;color:#a78bfa;font-family:\'Courier New\',monospace;">
+                '.htmlspecialchars($pin).'
+              </div>
+            </div>
+
+            <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
+              Enter this PIN on the ZoeFeeds vendor password reset page to set a new password.
+            </p>
+            <p style="margin:0 0 24px;font-size:13px;color:#6b7280;line-height:1.6;">
+              If you did not request this reset, you can safely ignore this email — your vendor account has not been changed.
+            </p>
+
+            <!-- CTA button -->
+            <div style="text-align:center;margin-bottom:24px;">
+              <a href="'.APP_URL.'/vendor/forgot-password.php"
+                 style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 32px;border-radius:12px;">
+                → Go to Vendor Reset Page
+              </a>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 32px 24px;border-top:1px solid rgba(124,58,237,0.12);text-align:center;">
+            <p style="margin:0;font-size:11px;color:#4b5563;">
+              This email was sent to your ZoeFeeds vendor account ·
+              <a href="'.APP_URL.'/vendor" style="color:#a78bfa;text-decoration:none;">vendor.zoefeeds.com</a><br>
+              Do not share your PIN with anyone. ZoeFeeds will never ask for your PIN by phone or chat.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>';
+
+                $sent = smtpmailer($email, $subject, $body);
+
+                if (!$sent) {
+                    $error = 'Failed to send email. Please try again or contact support.';
+                } else {
+                    $_SESSION['fp_vendor_step']  = 2;
+                    $_SESSION['fp_vendor_email'] = $email;
+                    $step    = 2;
+                    $success = 'A 6-digit PIN has been sent to <strong>'.htmlspecialchars($email).'</strong>. Check your inbox (and spam folder).';
+                }
             }
         }
     }
@@ -93,7 +165,7 @@ if (isPost() && ($_POST['form'] ?? '') === 'verify') {
             $r->execute([$email]); $r = $r->fetch();
 
             if (!$r || !password_verify($pin, $r['pin_hash'])) {
-                $error = 'Incorrect or expired PIN. Please try again.';
+                $error = 'Incorrect or expired PIN. Please check and try again.';
             } else {
                 $_SESSION['fp_vendor_step']     = 3;
                 $_SESSION['fp_vendor_reset_id'] = $r['id'];
@@ -127,10 +199,14 @@ if (isPost() && ($_POST['form'] ?? '') === 'reset') {
             $db->prepare("UPDATE password_resets SET used=1 WHERE id=?")->execute([$rid]);
             auditLog('vendor', $uid, 'password_reset', 'Vendor password reset via email PIN');
 
-            unset($_SESSION['fp_vendor_step'], $_SESSION['fp_vendor_email'],
-                  $_SESSION['fp_vendor_reset_id'], $_SESSION['fp_vendor_uid']);
+            unset(
+                $_SESSION['fp_vendor_step'],
+                $_SESSION['fp_vendor_email'],
+                $_SESSION['fp_vendor_reset_id'],
+                $_SESSION['fp_vendor_uid']
+            );
 
-            $success = 'Password changed successfully! You can now log in to your vendor account.';
+            $success = 'Your vendor password has been changed. You can now log in.';
             $step    = 1;
         }
     }
@@ -152,15 +228,12 @@ if (isset($_GET['resend']) && $step === 2) {
   <style>
     * { font-family: 'Poppins', sans-serif !important; }
     body { background: #0a0f1a; }
-
-    /* Purple vendor palette */
     :root { --vp: #7c3aed; --va: #a78bfa; --vb: rgba(124,58,237,.22); }
 
     .step-ring {
       width: 36px; height: 36px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .75rem; font-weight: 800; flex-shrink: 0;
-      transition: all .3s;
+      font-size: .75rem; font-weight: 800; flex-shrink: 0; transition: all .3s;
     }
     .step-ring.done   { background: #22c55e; color: #fff; }
     .step-ring.active { background: var(--vp); color: #fff; box-shadow: 0 0 0 4px rgba(124,58,237,.2); }
@@ -175,18 +248,13 @@ if (isset($_GET['resend']) && $step === 2) {
     }
 
     .fp-input {
-      width: 100%;
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 12px;
-      color: #fff;
-      padding: .75rem 1rem;
-      font-size: .9rem;
+      width: 100%; background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.10); border-radius: 12px;
+      color: #fff; padding: .75rem 1rem; font-size: .9rem;
       transition: border-color .2s, box-shadow .2s;
     }
     .fp-input:focus {
-      border-color: var(--va);
-      outline: none;
+      border-color: var(--va); outline: none;
       box-shadow: 0 0 0 3px rgba(124,58,237,.15);
     }
     .fp-input::placeholder { color: #6b7280; }
@@ -196,55 +264,38 @@ if (isset($_GET['resend']) && $step === 2) {
       width: 52px; height: 60px;
       background: rgba(255,255,255,.04);
       border: 1.5px solid rgba(255,255,255,.10);
-      border-radius: 12px;
-      color: #fff;
-      font-size: 1.5rem;
-      font-weight: 800;
-      text-align: center;
+      border-radius: 12px; color: #fff;
+      font-size: 1.5rem; font-weight: 800; text-align: center;
       transition: border-color .2s, box-shadow .2s;
     }
     .pin-box:focus {
-      border-color: var(--va);
-      outline: none;
+      border-color: var(--va); outline: none;
       box-shadow: 0 0 0 3px rgba(124,58,237,.15);
     }
 
-    /* Modal */
     .pw-modal-overlay {
       position: fixed; inset: 0; z-index: 999;
-      background: rgba(0,0,0,.75);
-      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.75); backdrop-filter: blur(6px);
       display: flex; align-items: center; justify-content: center; padding: 1rem;
     }
     .pw-modal-box {
-      background: #111827;
-      border: 1px solid var(--vb);
-      border-radius: 20px;
-      padding: 2rem;
+      background: #111827; border: 1px solid var(--vb);
+      border-radius: 20px; padding: 2rem;
       width: 100%; max-width: 420px;
       animation: modalIn .25s ease;
     }
-    @keyframes modalIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes modalIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
     .btn-vendor {
       display: inline-flex; align-items: center; justify-content: center;
       width: 100%; padding: .85rem 1.5rem;
       background: linear-gradient(135deg, #7c3aed, #6d28d9);
       color: #fff; border: none; border-radius: 14px;
-      font-weight: 700; font-size: .95rem; cursor: pointer;
-      transition: all .2s;
+      font-weight: 700; font-size: .95rem; cursor: pointer; transition: all .2s;
+      text-decoration: none;
     }
-    .btn-vendor:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,.4); }
-
-    .btn-ghost {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 100%; padding: .75rem 1.5rem;
-      background: transparent; color: #9ca3af;
-      border: 1px solid var(--vb); border-radius: 14px;
-      font-weight: 600; font-size: .875rem; cursor: pointer; text-decoration: none;
-      transition: all .2s;
-    }
-    .btn-ghost:hover { background: rgba(124,58,237,.06); color: #fff; }
+    .btn-vendor:hover { opacity:.9; transform:translateY(-1px); box-shadow:0 8px 24px rgba(124,58,237,.4); }
+    .btn-vendor:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
   </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center p-4">
@@ -256,12 +307,12 @@ if (isset($_GET['resend']) && $step === 2) {
     <div class="text-center mb-6">
       <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3"
            style="background:rgba(124,58,237,.15)">🔐</div>
-      <h2 class="text-xl font-black">Set New Password</h2>
+      <h2 class="text-xl font-black">Set New Vendor Password</h2>
       <p class="text-gray-400 text-sm mt-1">Choose a strong password for your vendor account.</p>
     </div>
 
     <?php if ($error): ?>
-    <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-3 mb-4 text-sm"><?= e($error) ?></div>
+    <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-3 mb-4 text-sm">❌ <?= e($error) ?></div>
     <?php endif; ?>
 
     <form method="POST">
@@ -278,7 +329,7 @@ if (isset($_GET['resend']) && $step === 2) {
         </div>
       </div>
 
-      <div class="mb-6">
+      <div class="mb-5">
         <label class="fp-label">Confirm New Password</label>
         <div class="relative">
           <input type="password" name="confirm_password" id="pw-conf" class="fp-input pr-12"
@@ -286,11 +337,12 @@ if (isset($_GET['resend']) && $step === 2) {
           <button type="button" onclick="togglePw('pw-conf')"
                   class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-lg">👁</button>
         </div>
+        <div class="text-xs text-red-400 mt-1 hidden" id="pw-mismatch">Passwords do not match</div>
       </div>
 
       <!-- Strength meter — purple bars -->
       <div class="mb-5">
-        <div class="flex gap-1 mb-1" id="strength-bars">
+        <div class="flex gap-1 mb-1">
           <?php for ($i=0;$i<4;$i++): ?>
           <div class="h-1.5 flex-1 rounded-full" style="background:rgba(124,58,237,.15)" id="sb<?= $i ?>"></div>
           <?php endfor; ?>
@@ -298,7 +350,7 @@ if (isset($_GET['resend']) && $step === 2) {
         <div class="text-xs text-gray-500" id="strength-label">Enter a password to check strength</div>
       </div>
 
-      <button type="submit" class="btn-vendor">🔑 Change Password</button>
+      <button type="submit" class="btn-vendor">🔑 Change Vendor Password</button>
     </form>
   </div>
 </div>
@@ -307,29 +359,22 @@ if (isset($_GET['resend']) && $step === 2) {
 <!-- ── MAIN CARD ──────────────────────────────────────────── -->
 <div class="w-full max-w-md py-8">
 
-  <!-- Logo — purple vendor variant -->
   <div class="text-center mb-8">
     <a href="<?= APP_URL ?>/vendor" class="inline-flex items-center gap-2 mb-3">
       <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-xl"
            style="background:#7c3aed">Z</div>
       <span class="font-bold text-2xl">Zoe<span style="color:#a78bfa">Feeds</span></span>
       <span class="text-xs rounded-full px-2 py-0.5 font-semibold"
-            style="background:rgba(124,58,237,.2);border:1px solid var(--vb);color:#c4b5fd;font-size:.6rem">
-        VENDOR
-      </span>
+            style="background:rgba(124,58,237,.2);border:1px solid var(--vb);color:#c4b5fd;font-size:.6rem">VENDOR</span>
     </a>
     <div class="text-sm text-gray-400">Vendor Account Recovery</div>
   </div>
 
   <!-- Step indicator -->
   <div class="flex items-center mb-7 px-2">
-    <div class="step-ring <?= $step >= 1 ? ($step > 1 ? 'done' : 'active') : 'idle' ?>">
-      <?= $step > 1 ? '✓' : '1' ?>
-    </div>
+    <div class="step-ring <?= $step >= 1 ? ($step > 1 ? 'done' : 'active') : 'idle' ?>"><?= $step > 1 ? '✓' : '1' ?></div>
     <div class="step-connector <?= $step > 1 ? 'done' : '' ?>"></div>
-    <div class="step-ring <?= $step === 2 ? 'active' : ($step > 2 ? 'done' : 'idle') ?>">
-      <?= $step > 2 ? '✓' : '2' ?>
-    </div>
+    <div class="step-ring <?= $step === 2 ? 'active' : ($step > 2 ? 'done' : 'idle') ?>"><?= $step > 2 ? '✓' : '2' ?></div>
     <div class="step-connector <?= $step > 2 ? 'done' : '' ?>"></div>
     <div class="step-ring <?= $step === 3 ? 'active' : 'idle' ?>">3</div>
   </div>
@@ -337,71 +382,63 @@ if (isset($_GET['resend']) && $step === 2) {
   <div class="fp-card p-8">
 
     <?php if ($success): ?>
-    <div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm">
-      ✅ <?= $success ?>
-    </div>
+    <div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm">✅ <?= $success ?></div>
     <?php endif; ?>
     <?php if ($error && $step !== 3): ?>
-    <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm">
-      ❌ <?= e($error) ?>
-    </div>
+    <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm">❌ <?= e($error) ?></div>
     <?php endif; ?>
 
-    <!-- ── STEP 1 ─────────────────────────────────────────── -->
+    <!-- STEP 1 -->
     <?php if ($step === 1 && !$success): ?>
     <h1 class="text-2xl font-black mb-1">Forgot Password?</h1>
-    <p class="text-gray-400 text-sm mb-6">Enter your vendor account email and we'll send a reset PIN.</p>
-
+    <p class="text-gray-400 text-sm mb-6">Enter your vendor account email and we'll send a 6-digit reset PIN.</p>
     <form method="POST">
       <?= csrfField() ?>
       <input type="hidden" name="form" value="request">
       <div class="mb-5">
         <label class="fp-label">Vendor Email Address</label>
-        <input type="email" name="email" class="fp-input"
-               placeholder="vendor@yourbusiness.com"
+        <input type="email" name="email" class="fp-input" placeholder="vendor@yourbusiness.com"
                value="<?= e($_POST['email'] ?? '') ?>" required autofocus>
       </div>
-      <button type="submit" class="btn-vendor mb-4">📧 Send Reset PIN</button>
+      <button type="submit" class="btn-vendor">📧 Send Reset PIN</button>
     </form>
 
     <?php elseif ($step === 1 && $success): ?>
-    <h1 class="text-2xl font-black mb-2">Password Changed!</h1>
+    <h1 class="text-2xl font-black mb-2">Password Changed! 🎉</h1>
     <p class="text-gray-400 text-sm mb-6">Your vendor password has been updated. Log in with your new password.</p>
-    <a href="<?= APP_URL ?>/vendor/login.php" class="btn-vendor mb-4">→ Vendor Login</a>
+    <a href="<?= APP_URL ?>/vendor/login.php" class="btn-vendor">→ Vendor Login</a>
 
-    <!-- ── STEP 2 ─────────────────────────────────────────── -->
+    <!-- STEP 2 -->
     <?php elseif ($step === 2): ?>
     <h1 class="text-2xl font-black mb-1">Enter Your PIN</h1>
     <p class="text-gray-400 text-sm mb-1">
       We sent a 6-digit PIN to <strong class="text-white"><?= e($_SESSION['fp_vendor_email'] ?? '') ?></strong>.
     </p>
-    <p class="text-xs text-gray-500 mb-6">Check your spam folder. PIN expires in 15 minutes.</p>
+    <p class="text-xs text-gray-500 mb-6">Check your spam folder too. PIN expires in 15 minutes.</p>
 
-    <form method="POST" id="pin-form">
+    <form method="POST">
       <?= csrfField() ?>
-      <input type="hidden" name="form"  value="verify">
-      <input type="hidden" name="pin"   id="pin-hidden">
+      <input type="hidden" name="form" value="verify">
+      <input type="hidden" name="pin" id="pin-hidden">
 
       <div class="flex gap-2 justify-center mb-6">
-        <?php for ($i = 0; $i < 6; $i++): ?>
+        <?php for ($i=0; $i<6; $i++): ?>
         <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
                class="pin-box" id="pin-<?= $i ?>" autocomplete="off">
         <?php endfor; ?>
       </div>
 
-      <button type="submit" id="pin-submit" class="btn-vendor mb-4" disabled style="opacity:.5;cursor:not-allowed">
-        ✓ Verify PIN
-      </button>
+      <button type="submit" id="pin-submit" class="btn-vendor mb-4" disabled>✓ Verify PIN</button>
     </form>
 
-    <div class="text-center">
-      <a href="?resend=1" class="text-sm hover:underline" style="color:#a78bfa">← Use a different email</a>
+    <div class="text-center text-sm">
+      <a href="?resend=1" style="color:#a78bfa" class="hover:underline">← Use a different email</a>
     </div>
 
-    <!-- ── STEP 3 ─────────────────────────────────────────── -->
+    <!-- STEP 3 waiting state -->
     <?php elseif ($step === 3): ?>
     <h1 class="text-2xl font-black mb-1">PIN Verified ✓</h1>
-    <p class="text-gray-400 text-sm">Set your new vendor password in the panel that appeared.</p>
+    <p class="text-gray-400 text-sm">Complete your password reset in the panel that appeared.</p>
 
     <?php endif; ?>
 
@@ -414,7 +451,6 @@ if (isset($_GET['resend']) && $step === 2) {
 </div>
 
 <script>
-// ── PIN boxes ───────────────────────────────────────────────
 const pinInputs = document.querySelectorAll('.pin-box');
 const pinHidden = document.getElementById('pin-hidden');
 const pinSubmit = document.getElementById('pin-submit');
@@ -426,7 +462,6 @@ function syncPin() {
     const full = val.length === 6 && /^\d{6}$/.test(val);
     pinSubmit.disabled = !full;
     pinSubmit.style.opacity = full ? '1' : '.5';
-    pinSubmit.style.cursor  = full ? 'pointer' : 'not-allowed';
   }
 }
 
@@ -445,47 +480,47 @@ pinInputs.forEach((inp, i) => {
   });
   inp.addEventListener('paste', e => {
     e.preventDefault();
-    const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g,'').slice(0,6);
+    const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
     [...pasted].forEach((ch, j) => { if (pinInputs[j]) pinInputs[j].value = ch; });
     if (pinInputs[Math.min(pasted.length, 5)]) pinInputs[Math.min(pasted.length, 5)].focus();
     syncPin();
   });
 });
 
-// ── Strength meter ──────────────────────────────────────────
-const pwNew = document.getElementById('pw-new');
+const pwNew     = document.getElementById('pw-new');
+const pwConf    = document.getElementById('pw-conf');
+const mismatch  = document.getElementById('pw-mismatch');
+
 if (pwNew) {
   pwNew.addEventListener('input', () => {
     const v = pwNew.value;
     let score = 0;
-    if (v.length >= 6)  score++;
+    if (v.length >= 6) score++;
     if (v.length >= 10) score++;
     if (/[A-Z]/.test(v) && /[a-z]/.test(v)) score++;
     if (/[0-9]/.test(v) && /[^a-zA-Z0-9]/.test(v)) score++;
-
-    const colors  = ['#ef4444','#f97316','#eab308','#22c55e'];
-    const labels  = ['Weak','Fair','Good','Strong'];
+    const colors = ['#ef4444','#f97316','#eab308','#22c55e'];
+    const labels = ['Weak','Fair','Good','Strong'];
     for (let i = 0; i < 4; i++) {
-      const bar = document.getElementById('sb'+i);
-      if (!bar) continue;
-      bar.style.background = i < score ? colors[score-1] : 'rgba(124,58,237,.12)';
+      const b = document.getElementById('sb'+i);
+      if (b) b.style.background = i < score ? colors[score-1] : 'rgba(124,58,237,.12)';
     }
     const lbl = document.getElementById('strength-label');
-    if (lbl) lbl.textContent = v ? labels[score-1] + ' password' : 'Enter a password to check strength';
+    if (lbl) lbl.textContent = v ? labels[score-1]+' password' : 'Enter a password to check strength';
+  });
+}
+
+if (pwConf && pwNew && mismatch) {
+  pwConf.addEventListener('input', () => {
+    const bad = pwConf.value && pwConf.value !== pwNew.value;
+    pwConf.style.borderColor = bad ? '#ef4444' : '';
+    mismatch.classList.toggle('hidden', !bad);
   });
 }
 
 function togglePw(id) {
   const el = document.getElementById(id);
   if (el) el.type = el.type === 'password' ? 'text' : 'password';
-}
-
-const pwConf = document.getElementById('pw-conf');
-if (pwConf && pwNew) {
-  pwConf.addEventListener('input', () => {
-    pwConf.style.borderColor = (pwConf.value && pwConf.value !== pwNew.value)
-      ? '#ef4444' : '';
-  });
 }
 </script>
 </body>
