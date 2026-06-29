@@ -92,10 +92,11 @@ if (isPost()) {
         <button type="submit" class="btn btn-primary w-full py-3 text-base mt-2">Sign In</button>
       </form>
       <p class="text-center text-sm text-gray-400 mt-6">New to ZoeFeeds? <a href="<?= APP_URL ?>/user/register.php" class="text-orange-400 hover:underline font-semibold">Create account</a></p>
-      <div class="text-center mt-4 text-sm text-gray-500 space-x-4">
-      <a href="<?= APP_URL ?>/user/login.php" class="hover:text-orange-400">User Login</a>
-      <span>|</span>
-     
+      <div class="text-center mt-5 space-y-2 text-sm text-gray-500">
+      <div>New User? <a href="<?= APP_URL ?>/user/register.php" class="text-purple-400 hover:underline font-semibold">Apply to register →</a></div>
+      <div>
+         Do't remember your password  <a href="<?= APP_URL ?>/user/forgot-password.php" class="text-purple-400 hover:underline font-semibold">Click Here →</a>
+      </div>
     </div>
     </div>
   </div>
