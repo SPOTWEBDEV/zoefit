@@ -63,8 +63,6 @@ if (isPost()) {
       <a href="<?= APP_URL ?>/user/login.php" class="hover:text-orange-400">User Login</a>
       <span>|</span>
       <a href="<?= APP_URL ?>/vendor/login.php" class="hover:text-orange-400">Vendor Login</a>
-      <span>|</span>
-      <a href="<?= APP_URL ?>/admin/super-login.php" class="hover:text-orange-400">Super Admin</a>
     </div>
   </div>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>

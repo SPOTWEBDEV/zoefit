@@ -37,28 +37,15 @@ $existingWinner = $db->prepare(
 );
 $existingWinner->execute([$drawId]); $existingWinner = $existingWinner->fetch();
 
-// Top 10 entries by most matching digits (pre-calc for preview)
-// We can only show this AFTER finalization
-$topEntrants = null;
+// Top 3 official ranking (from draw_rankings table, saved at finalization time)
+$top3Official = null;
 if ($existingWinner) {
-  $wc = $existingWinner['winning_code'];
-  $rawEntries = $db->prepare(
-    "SELECT de.user_id, u.full_name, u.phone, c.code, de.entered_at,
-     (SELECT COUNT(*) FROM draw_entries WHERE draw_id=? AND user_id=de.user_id) as entry_count
-     FROM draw_entries de
-     JOIN codes c ON de.code_id=c.id
-     JOIN users u ON de.user_id=u.id
-     WHERE de.draw_id=? ORDER BY de.entered_at ASC"
+  $rk = $db->prepare(
+    "SELECT dr.*, u.full_name, u.phone
+     FROM draw_rankings dr JOIN users u ON dr.user_id=u.id
+     WHERE dr.draw_id=? ORDER BY dr.rank_position ASC"
   );
-  $rawEntries->execute([$drawId,$drawId]); $rawEntries=$rawEntries->fetchAll();
-
-  // Score each entry
-  foreach ($rawEntries as &$re) {
-    $m=0; for($p=0;$p<15;$p++) if($re['code'][$p]===$wc[$p]) $m++;
-    $re['matches'] = $m;
-  } unset($re);
-  usort($rawEntries, fn($a,$b) => $b['matches']<=>$a['matches']);
-  $topEntrants = array_slice($rawEntries,0,10);
+  $rk->execute([$drawId]); $top3Official = $rk->fetchAll();
 }
 
 // Recent entries (for display)
@@ -76,7 +63,7 @@ $aPage = 'draws';
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title>Manage Draw — <?= APP_NAME ?> Admin</title>
-  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>
@@ -177,42 +164,49 @@ $aPage = 'draws';
       </div>
     </div>
 
-    <!-- Top scorers table -->
-    <?php if($topEntrants): ?>
+    <!-- Official Top 3 Podium -->
+    <?php if($top3Official): ?>
     <div class="card mb-5">
-      <div class="px-5 pt-5 pb-3 border-b border-white/5 font-bold">Top 10 Scorers</div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Rank</th><th>Participant</th><th>Best Code</th><th>Matches</th><th>Entries</th></tr></thead>
-          <tbody>
-            <?php foreach($topEntrants as $rank=>$te): ?>
-            <tr class="<?= $te['user_id']==$existingWinner['user_id']?'bg-yellow-500/5':'' ?>">
-              <td>
-                <span class="<?= $rank===0?'text-yellow-400 font-black text-lg':'text-gray-500' ?>">
-                  <?= $rank===0?'🏆':($rank+1) ?>
-                </span>
-              </td>
-              <td>
-                <div class="font-medium text-sm"><?= e($te['full_name']) ?></div>
-                <div class="text-xs text-gray-500"><?= e(formatPhone($te['phone'])) ?></div>
-              </td>
-              <td><code class="text-xs text-orange-400"><?= e($te['code']) ?></code></td>
-              <td>
-                <span class="font-bold <?= $te['matches']>=10?'text-green-400':($te['matches']>=5?'text-yellow-400':'text-gray-400') ?>">
-                  <?= $te['matches'] ?>/15
-                </span>
-              </td>
-              <td class="text-sm"><?= $te['entry_count'] ?></td>
-            </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+      <div class="px-5 pt-5 pb-3 border-b border-white/5 font-bold">🏅 Top 3 Finishers</div>
+      <div class="grid sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+        <?php
+        $rankStyle = [
+          1 => ['🥇','text-yellow-400','border-yellow-500/30','bg-yellow-500/5'],
+          2 => ['🥈','text-gray-300','border-gray-400/30','bg-white/3'],
+          3 => ['🥉','text-orange-300','border-orange-700/30','bg-orange-900/5'],
+        ];
+        foreach($top3Official as $r): $rs = $rankStyle[$r['rank_position']]; ?>
+        <div class="p-5 text-center <?= $rs[3] ?>">
+          <div class="text-4xl mb-2"><?= $rs[0] ?></div>
+          <div class="font-bold <?= $rs[1] ?> mb-0.5"><?= e($r['full_name']) ?></div>
+          <div class="text-xs text-gray-500 mb-3"><?= e(formatPhone($r['phone'])) ?></div>
+          <code class="text-xs text-orange-400 block mb-2"><?= e($r['user_code']) ?></code>
+          <div class="text-sm">
+            <span class="font-bold <?= $r['matched_digits']>=10?'text-green-400':($r['matched_digits']>=5?'text-yellow-400':'text-gray-400') ?>"><?= $r['matched_digits'] ?>/15</span>
+            <span class="text-gray-500"> matched</span>
+          </div>
+          <div class="text-xs text-gray-600 mt-1"><?= $r['entries_count'] ?> entries</div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- ── AUTO-FINALIZE NOTICE (shown when draw has ended but cron hasn't run yet) ── -->
+    <?php if (!$existingWinner && in_array($draw['status'],['active','paused']) && strtotime($draw['end_date']) <= time()): ?>
+    <div class="card p-5 mb-5 border-cyan-500/30" style="background:linear-gradient(135deg,rgba(6,182,212,.08),var(--bg-card))">
+      <div class="flex items-center gap-3">
+        <div class="text-2xl">⏳</div>
+        <div>
+          <div class="font-bold text-cyan-400">This draw has ended and is awaiting automatic finalization</div>
+          <div class="text-xs text-gray-400 mt-0.5">The cron job runs every minute and will generate the winning code automatically. You can also finalize it manually right now below.</div>
+        </div>
       </div>
     </div>
     <?php endif; ?>
 
-    <!-- ── FINALIZE BUTTON (shown only when draw is active/paused) ── -->
-    <?php elseif (in_array($draw['status'],['active','paused'])): ?>
+    <?php if (!$existingWinner): ?>
     <div class="card p-6 mb-5 border-orange-500/30">
       <div class="flex items-start gap-4 mb-5">
         <div class="text-3xl flex-shrink-0">🎲</div>

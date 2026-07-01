@@ -7,59 +7,80 @@ if (!empty($_SESSION['user_id'])) redirect(APP_URL . '/user/dashboard.php');
 $error = '';
 
 if (isPost()) {
-    if (!verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
-        $error = 'Invalid request.';
+  if (!verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
+    $error = 'Invalid request.';
+  } else {
+    $phone_email = trim($_POST['phone_email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    // Determine if input is email or phone
+    $isEmail = filter_var($phone_email, FILTER_VALIDATE_EMAIL);
+
+    if ($isEmail) {
+      $identifier = $phone_email;
+      $rateLimitKey = 'login_attempts_' . md5($identifier); // Secure key for emails
     } else {
-        $phone    = trim($_POST['phone'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $normalizedPhone = normalizePhone($phone);
-
-        // Rate limiting via session
-        $key = 'login_attempts_' . $normalizedPhone;
-        if (isset($_SESSION[$key]) && $_SESSION[$key]['count'] >= LOGIN_MAX_ATTEMPTS) {
-            $locked = $_SESSION[$key]['time'];
-            if (time() - $locked < LOGIN_LOCKOUT_MINUTES * 60) {
-                $remaining = ceil((LOGIN_LOCKOUT_MINUTES * 60 - (time() - $locked)) / 60);
-                $error = "Too many attempts. Try again in {$remaining} minute(s).";
-            } else {
-                unset($_SESSION[$key]);
-            }
-        }
-
-        if (!$error) {
-            $db = getDB();
-            $stmt = $db->prepare("SELECT id, full_name, password, status FROM users WHERE phone = ?");
-            $stmt->execute([$normalizedPhone]);
-            $user = $stmt->fetch();
-
-            if ($user && password_verify($password, $user['password'])) {
-                if ($user['status'] === 'suspended') {
-                    $error = 'Your account has been suspended. Contact support.';
-                } else {
-                    unset($_SESSION[$key]);
-                    $_SESSION['user_id']   = $user['id'];
-                    $_SESSION['user_name'] = $user['full_name'];
-                    session_regenerate_id(true);
-                    auditLog('user', $user['id'], 'login', 'User logged in');
-                    redirect(APP_URL . '/user/dashboard.php');
-                }
-            } else {
-                $_SESSION[$key]['count'] = ($_SESSION[$key]['count'] ?? 0) + 1;
-                $_SESSION[$key]['time']  = time();
-                $error = 'Invalid phone number or password.';
-            }
-        }
+      $identifier = normalizePhone($phone_email); // Fixed: passed $phone_email instead of undefined $phone
+      $rateLimitKey = 'login_attempts_' . $identifier;
     }
+
+    // Rate limiting via session
+    if (isset($_SESSION[$rateLimitKey]) && $_SESSION[$rateLimitKey]['count'] >= LOGIN_MAX_ATTEMPTS) {
+      $locked = $_SESSION[$rateLimitKey]['time'];
+      if (time() - $locked < LOGIN_LOCKOUT_MINUTES * 60) {
+        $remaining = ceil((LOGIN_LOCKOUT_MINUTES * 60 - (time() - $locked)) / 60);
+        $error = "Too many attempts. Try again in {$remaining} minute(s).";
+      } else {
+        unset($_SESSION[$rateLimitKey]);
+      }
+    }
+
+    if (!$error) {
+      $db = getDB();
+
+      // Dynamic SQL query based on input type
+      if ($isEmail) {
+        $stmt = $db->prepare("SELECT id, full_name, password, status FROM users WHERE email = ?");
+      } else {
+        $stmt = $db->prepare("SELECT id, full_name, password, status FROM users WHERE phone = ?");
+      }
+
+      $stmt->execute([$identifier]);
+      $user = $stmt->fetch();
+
+      if ($user && password_verify($password, $user['password'])) {
+        if ($user['status'] === 'suspended') {
+          $error = 'Your account has been suspended. Contact support.';
+        } else {
+          unset($_SESSION[$rateLimitKey]);
+          $_SESSION['user_id']   = $user['id'];
+          $_SESSION['user_name'] = $user['full_name'];
+          session_regenerate_id(true);
+          auditLog('user', $user['id'], 'login', 'User logged in');
+          redirect(APP_URL . '/user/dashboard.php');
+        }
+      } else {
+        $_SESSION[$rateLimitKey]['count'] = ($_SESSION[$rateLimitKey]['count'] ?? 0) + 1;
+        $_SESSION[$rateLimitKey]['time']  = time();
+        $error = 'Invalid login credentials.';
+      }
+    }
+  }
 }
-?><!DOCTYPE html>
+
+?>
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login — <?= APP_NAME ?></title>
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
 </head>
+
 <body class="bg-[#0a0f1a] text-white font-sans min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-md">
     <div class="text-center mb-8">
@@ -79,8 +100,8 @@ if (isPost()) {
       <form method="POST">
         <?= csrfField() ?>
         <div class="form-group">
-          <label class="form-label">Phone Number</label>
-          <input type="tel" name="phone" class="form-control" placeholder="08012345678" data-phone value="<?= e($_POST['phone'] ?? '') ?>" autofocus required>
+          <label class="form-label">Phone Number / Email</label>
+          <input type="text" name="phone_email" class="form-control" placeholder="08012345678 or email@example.com" value="<?= e($_POST['phone_email'] ?? '') ?>" autofocus required>
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
@@ -93,18 +114,20 @@ if (isPost()) {
       </form>
       <p class="text-center text-sm text-gray-400 mt-6">New to ZoeFeeds? <a href="<?= APP_URL ?>/user/register.php" class="text-orange-400 hover:underline font-semibold">Create account</a></p>
       <div class="text-center mt-5 space-y-2 text-sm text-gray-500">
-      <div>New User? <a href="<?= APP_URL ?>/user/register.php" class="text-purple-400 hover:underline font-semibold">Apply to register →</a></div>
-      <div>
-         Do't remember your password  <a href="<?= APP_URL ?>/user/forgot-password.php" class="text-purple-400 hover:underline font-semibold">Click Here →</a>
+        <div>New User? <a href="<?= APP_URL ?>/user/register.php" class="text-purple-400 hover:underline font-semibold">Apply to register →</a></div>
+        <div>
+          Do't remember your password <a href="<?= APP_URL ?>/user/forgot-password.php" class="text-purple-400 hover:underline font-semibold">Click Here →</a>
+        </div>
       </div>
     </div>
-    </div>
   </div>
-<script src="<?= APP_URL ?>/assets/js/app.js"></script>
-<script>
-function togglePw() {
-  const el = document.getElementById('pw');
-  el.type = el.type === 'password' ? 'text' : 'password';
-}
-</script>
-</body></html>
+  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+  <script>
+    function togglePw() {
+      const el = document.getElementById('pw');
+      el.type = el.type === 'password' ? 'text' : 'password';
+    }
+  </script>
+</body>
+
+</html>
