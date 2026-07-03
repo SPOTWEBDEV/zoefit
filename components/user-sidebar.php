@@ -77,17 +77,29 @@ $currentPage = $currentPage ?? '';
     </a>
 
 
+    
+
+    <div class="px-4 pt-3 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
+    <a href="<?= APP_URL ?>/vendor/register.php" class="nav-item text-orange-400 hover:bg-orange-500/10 ">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Become a Vendor
+    </a>
+
+
+
 
   </div>
 
- <div class="p-3 border-t border-white/5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-3">
-  <a href="<?= APP_URL ?>/user/logout.php" class="nav-item text-red-400 hover:bg-red-500/10">
-    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-    </svg>
-    Logout
-  </a>
-</div>
+  <div class="p-3 border-t border-white/5 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-3">
+    <a href="<?= APP_URL ?>/user/logout.php" class="nav-item text-red-400 hover:bg-red-500/10">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+      </svg>
+      Logout
+    </a>
+  </div>
 </nav>
 
 <!-- Mobile overlay -->

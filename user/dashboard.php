@@ -79,6 +79,7 @@ $pageTitle = 'Dashboard';
       </div>
       <div class="flex gap-3 mt-4">
         <a href="<?= APP_URL ?>/user/redeem.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">+ Redeem Code</a>
+        <a href="<?= APP_URL ?>/user/transfer.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">Transfer Code</a>
        
       </div>
     </div>

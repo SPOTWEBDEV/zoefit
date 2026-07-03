@@ -203,14 +203,6 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     <h1 class="text-2xl font-bold mb-1">Vendor Application</h1>
     <p class="text-gray-400 text-sm mb-5">Join the ZoeFeeds vendor network and distribute raffle codes to your customers.</p>
 
-    <!-- API key auto-generation notice -->
-    <div class="info-box mb-5 flex items-start gap-2.5 text-sm">
-      <span class="text-purple-400 flex-shrink-0 mt-0.5">🔑</span>
-      <div class="text-gray-300">
-        <strong class="text-white">API keys are generated automatically</strong> when you register.
-        Your public &amp; secret key pair will be ready immediately in your dashboard — no extra step needed.
-      </div>
-    </div>
 
     <div class="info-box mb-5 flex items-start gap-2.5 text-sm">
       <span class="text-purple-400 flex-shrink-0 mt-0.5">ℹ️</span>
@@ -298,18 +290,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
 
       <hr class="divider">
 
-      <!-- API key auto-generation reminder -->
-      <div class="info-box mb-5">
-        <div class="font-semibold text-purple-300 text-sm mb-1.5">🔑 API Keys — Auto Generated</div>
-        <p class="text-xs text-gray-400 leading-relaxed mb-2">
-          A <strong class="text-white">public key</strong> and <strong class="text-white">secret key</strong> will be created automatically when you submit this form.
-          Your public key will look like:
-        </p>
-        <div class="key-preview">zf_pub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div>
-        <p class="text-xs text-gray-500 mt-2">
-          ⚠️ Your <strong class="text-yellow-400">secret key</strong> is shown <strong class="text-yellow-400">only once</strong> after registration — copy it immediately from your dashboard.
-        </p>
-      </div>
+
 
       <!-- Warning -->
       <div class="warning-box mb-5">

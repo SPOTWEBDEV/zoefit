@@ -642,7 +642,6 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <ul class="space-y-2 text-sm">
           <li><a href="<?= APP_URL ?>/user/login.php"    class="text-gray-500 hover:text-orange-400 transition-colors">Log In</a></li>
           <li><a href="<?= APP_URL ?>/user/register.php" class="text-gray-500 hover:text-orange-400 transition-colors">Register</a></li>
-          <li><a href="<?= APP_URL ?>/admin/login.php"   class="text-gray-500 hover:text-orange-400 transition-colors">Admin</a></li>
         </ul>
       </div>
 

@@ -208,10 +208,7 @@ $pageTitle   = 'Vendor Dashboard';
         <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:rgba(124,58,237,.15)">🖨️</div>
         <div><div class="font-semibold text-sm">View &amp; Print Codes</div><div class="text-xs text-gray-500">Select &amp; print ticket slips</div></div>
       </a>
-      <a href="<?= APP_URL ?>/vendor/transfer.php" class="card p-4 flex items-center gap-3 hover:border-cyan-500/30 transition-colors">
-        <div class="w-10 h-10 bg-cyan-500/15 rounded-xl flex items-center justify-center text-xl">↔️</div>
-        <div><div class="font-semibold text-sm">Transfer to Vendor</div><div class="text-xs text-gray-500">Send codes to another vendor</div></div>
-      </a>
+      
       <a href="?tab=keys" class="card p-4 flex items-center gap-3 transition-colors" style="border-color:rgba(124,58,237,.15)" onmouseover="this.style.borderColor='rgba(124,58,237,.4)'" onmouseout="this.style.borderColor='rgba(124,58,237,.15)'">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:rgba(124,58,237,.15)">🔑</div>
         <div><div class="font-semibold text-sm">API Keys</div><div class="text-xs text-gray-500">Integration access</div></div>

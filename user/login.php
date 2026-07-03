@@ -119,6 +119,12 @@ if (isPost()) {
           Do't remember your password <a href="<?= APP_URL ?>/user/forgot-password.php" class="text-purple-400 hover:underline font-semibold">Click Here →</a>
         </div>
       </div>
+      
+    </div>
+    <div class="text-center mt-4 text-sm text-gray-500 space-x-4">
+      <a href="<?= APP_URL ?>/user/login.php" class="hover:text-orange-400">User Login</a>
+      <span>|</span>
+      <a href="<?= APP_URL ?>/vendor/login.php" class="hover:text-orange-400">Vendor Login</a>
     </div>
   </div>
   <script src="<?= APP_URL ?>/assets/js/app.js"></script>
