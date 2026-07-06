@@ -415,7 +415,6 @@ $aPage = 'draws';
   </div>
 </div>
 <?php endif; ?>
-
 <script>
   window.APP_URL = '<?= APP_URL ?>';
 </script>
