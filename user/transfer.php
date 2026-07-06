@@ -81,6 +81,9 @@ $stmt=$db->prepare("SELECT * FROM users WHERE id=?");$stmt->execute([$userId]);$
     </div>
   </div>
 </div>
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 let recipientId = null;

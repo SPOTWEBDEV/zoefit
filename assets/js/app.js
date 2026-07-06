@@ -44,10 +44,22 @@ document.addEventListener('click', e => {
 });
 
 // =============================================
-// MOBILE SIDEBAR TOGGLE
+// MOBILE SIDEBAR TOGGLE & AUTO-CLOSE
 // =============================================
 function toggleSidebar() {
-  document.querySelector('.sidebar')?.classList.toggle('open');
+  const sb = document.getElementById('user-sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if (!sb) return;
+  
+  const isOpen = sb.classList.toggle('open');
+  if (ov) {
+    ov.classList.toggle('hidden', !isOpen);
+  }
+}
+
+function closeSidebar() {
+  document.getElementById('user-sidebar')?.classList.remove('open');
+  document.getElementById('sidebar-overlay')?.classList.add('hidden');
 }
 
 // =============================================
@@ -123,7 +135,9 @@ function initSlideshow(container) {
 // AJAX HELPER
 // =============================================
 const ZF = {
-  csrfToken: document.querySelector('meta[name="csrf-token"]')?.content || '',
+  get csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+  },
 
   async post(url, data = {}) {
     data._zf_csrf = this.csrfToken;
@@ -226,7 +240,7 @@ class LiveDrawPoller {
   stop() { clearInterval(this.interval); }
   async poll() {
     try {
-      const data = await ZF.get(`${APP_URL}/ajax/draw-reveal.php`, { draw_id: this.drawId });
+      const data = await ZF.get(`${window.APP_URL}/ajax/draw-reveal.php`, { draw_id: this.drawId });
       if (data.revealed !== this.lastRevealed) {
         this.lastRevealed = data.revealed;
         this.onUpdate(data);
@@ -282,7 +296,7 @@ async function pollNotifications() {
   const badge = document.getElementById('notif-badge');
   if (!badge) return;
   try {
-    const data = await ZF.get(`${APP_URL}/ajax/notifications.php`);
+    const data = await ZF.get(`${window.APP_URL}/ajax/notifications.php`);
     const count = data.unread || 0;
     badge.textContent = count > 0 ? count : '';
     badge.style.display = count > 0 ? 'flex' : 'none';
@@ -299,15 +313,17 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(pollNotifications, 30000);
 });
 
-// Make global
-window.APP_URL = '<?= APP_URL ?>';
+// Assign Globals
 window.Toast = Toast;
 window.Modal = Modal;
 window.ZF = ZF;
 window.toggleBalance = toggleBalance;
 window.toggleSidebar = toggleSidebar;
+window.closeSidebar = closeSidebar;
 window.InfiniteScroll = InfiniteScroll;
 window.LiveDrawPoller = LiveDrawPoller;
 window.highlightCodeMatch = highlightCodeMatch;
 window.renderCodeWithSpans = renderCodeWithSpans;
 window.initPinInput = initPinInput;
+
+console.log("URL recognized globally: " + window.APP_URL);

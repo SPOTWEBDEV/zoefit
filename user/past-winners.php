@@ -174,5 +174,8 @@ $currentPage = 'draws'; $pageTitle = 'Past Winners';
 
   </div>
 </div>
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 </body></html>

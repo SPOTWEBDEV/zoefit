@@ -1,9 +1,7 @@
 <?php
-
 $currentPage = $currentPage ?? '';
 ?>
 
-<!-- ── Desktop / Tablet Sidebar ─────────────────────────── -->
 <nav class="sidebar flex flex-col" id="user-sidebar">
 
   <div class="sidebar-logo flex items-center gap-2">
@@ -13,7 +11,6 @@ $currentPage = $currentPage ?? '';
 
   <div class="flex-1 py-3 overflow-y-auto space-y-0.5">
 
-    <!-- ── MAIN ───────────────────────────────────────── -->
     <div class="px-4 pt-1 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Main</div>
 
     <a href="<?= APP_URL ?>/user/dashboard.php" class="nav-item <?= $currentPage === 'dashboard' ? 'active' : '' ?>">
@@ -66,7 +63,6 @@ $currentPage = $currentPage ?? '';
       <span id="notif-badge" class="ml-auto bg-orange-500 text-white text-xs rounded-full w-5 h-5 items-center justify-center font-bold" style="display:none"></span>
     </a>
 
-    <!-- ── ACCOUNT ─────────────────────────────────────── -->
     <div class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Account</div>
 
     <a href="<?= APP_URL ?>/user/profile.php" class="nav-item <?= $currentPage === 'profile' ? 'active' : '' ?>">
@@ -76,9 +72,6 @@ $currentPage = $currentPage ?? '';
       Profile
     </a>
 
-
-    
-
     <div class="px-4 pt-3 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
     <a href="<?= APP_URL ?>/vendor/register.php" class="nav-item text-orange-400 hover:bg-orange-500/10 ">
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,9 +79,6 @@ $currentPage = $currentPage ?? '';
       </svg>
       Become a Vendor
     </a>
-
-
-
 
   </div>
 
@@ -102,10 +92,8 @@ $currentPage = $currentPage ?? '';
   </div>
 </nav>
 
-<!-- Mobile overlay -->
 <div class="fixed inset-0 bg-black/60 z-40 md:hidden hidden" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
-<!-- ── Bottom Navigation (mobile) ───────────────────────── -->
 <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50"
   style="background:rgba(10,15,26,0.97);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.07);padding-bottom:env(safe-area-inset-bottom)">
   <div class="flex items-stretch h-16">
@@ -124,7 +112,6 @@ $currentPage = $currentPage ?? '';
       <span>Draws</span>
     </a>
 
-    <!-- Centre Redeem FAB -->
     <a href="<?= APP_URL ?>/user/redeem.php" class="flex-1 flex flex-col items-center justify-center relative">
       <div class="w-14 h-14 rounded-2xl flex items-center justify-center -mt-7 transition-transform active:scale-90"
         style="background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 4px 28px rgba(249,115,22,0.55)">
@@ -142,7 +129,7 @@ $currentPage = $currentPage ?? '';
       <span>Winners</span>
     </a>
 
-    <a href="<?= APP_URL ?>/user/profile.php"
+    <a href="javascript:void(0)" onclick="toggleSidebar()"
       class="bnav-item <?= in_array($currentPage, ['profile', 'notifications', 'transactions', 'codes']) ? 'bnav-active' : '' ?>">
       <div class="relative">
         <svg class="bnav-icon" fill="<?= $currentPage === 'profile' ? 'currentColor' : 'none' ?>" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +137,7 @@ $currentPage = $currentPage ?? '';
         </svg>
         <span id="profile-notif-dot" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full hidden"></span>
       </div>
-      <span>Profile</span>
+      <span>Menu</span>
     </a>
 
   </div>
@@ -160,6 +147,24 @@ $currentPage = $currentPage ?? '';
   @media (max-width:767px) {
     .main-content {
       padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Fixed side navigation initialization properties for mobile viewport sizes */
+    #user-sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 270px;
+      z-index: 50;
+      background-color: #0b0f19; /* Adjust context hex to your theme panel colors */
+      transform: translateX(-100%);
+      transition: transform 0.25s ease-out;
+    }
+
+    /* Target state when layout open class is appended dynamically */
+    #user-sidebar.open {
+      transform: translateX(0);
     }
   }
 

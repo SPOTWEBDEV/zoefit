@@ -569,6 +569,9 @@ $totalRedeemed = $db->query("SELECT COUNT(*) FROM codes WHERE status='redeemed'"
   </div>
 </footer>
 
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 document.querySelectorAll('a[href^="#"]').forEach(a => {

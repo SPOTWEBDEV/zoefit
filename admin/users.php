@@ -351,6 +351,9 @@ $aPage = 'users';
   <input type="hidden" name="record_type" id="af-rtype">
 </form>
 
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 function doAction(id, type, action) {

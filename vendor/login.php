@@ -95,5 +95,8 @@ if (isPost()) {
     <a href="<?= APP_URL ?>" class="hover:text-orange-400">← Home</a>
   </div>
 </div>
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 </body></html>

@@ -127,7 +127,10 @@ if (isPost()) {
       <a href="<?= APP_URL ?>/vendor/login.php" class="hover:text-orange-400">Vendor Login</a>
     </div>
   </div>
-  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+  <script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
+<script src="<?= APP_URL ?>/assets/js/app.js"></script>
   <script>
     function togglePw() {
       const el = document.getElementById('pw');

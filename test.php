@@ -497,6 +497,9 @@ $slides = $db->query("SELECT * FROM slides WHERE status='active' ORDER BY sort_o
   </div>
 </footer>
 
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 function toggleFaq(btn) {

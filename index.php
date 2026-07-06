@@ -673,6 +673,9 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   </div>
 </footer>
 
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 // Smooth scroll

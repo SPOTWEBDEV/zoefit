@@ -184,6 +184,9 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
   </div>
 
 </div>
+<script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>function togglePw(id){const e=document.getElementById(id);e.type=e.type==='password'?'text':'password';}</script>
 </body></html>

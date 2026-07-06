@@ -8,7 +8,10 @@ $pageTitle = $pageTitle ?? APP_NAME;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= e($pageTitle) ?> — <?= APP_NAME ?></title>
   <meta name="description" content="ZoeFeeds — Loyalty Reward & Raffle Eligibility Platform">
-  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+  <script>
+  window.APP_URL = '<?= APP_URL ?>';
+</script>
+<script src="<?= APP_URL ?>/assets/js/app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
