@@ -19,6 +19,19 @@ function zf_detect_env(): string {
         return ZF_FORCE_ENV;
     }
 
+    // CLI context (cron jobs, etc.) has no $_SERVER HTTPS vars to inspect,
+    // so it always fell through to 'local' before. Require an explicit
+    // ZF_ENV env var for CLI runs instead of silently guessing wrong.
+    if (php_sapi_name() === 'cli') {
+        $cliEnv = getenv('ZF_ENV');
+        if ($cliEnv !== false && in_array($cliEnv, ['local', 'staging', 'production'], true)) {
+            return $cliEnv;
+        }
+        fwrite(STDERR, "ZF_ENV environment variable not set for CLI execution. "
+            . "Set it in your crontab, e.g.: ZF_ENV=production php cron/finalize-expired-draws.php\n");
+        exit(1);
+    }
+
     $isHttps =
         (!empty($_SERVER['HTTPS'])              && $_SERVER['HTTPS']              !== 'off') ||
         (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') ||
