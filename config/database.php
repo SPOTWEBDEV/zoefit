@@ -1,18 +1,6 @@
 <?php
-// ============================================================
-// config/database.php — ZoeFeeds Database Configuration
-// Automatically switches between LOCAL (HTTP) and LIVE (HTTPS)
-// ============================================================
 
-// -----------------------------------------------------------
-// ENVIRONMENT DETECTION
-// Detects HTTPS via server vars, load balancer headers, or
-// a manually forced environment flag below.
-// -----------------------------------------------------------
-
-// Optional: force environment manually.
-// Set to 'local', 'staging', or 'production'. Leave '' for auto-detect.
-define('ZF_FORCE_ENV', '');
+define('ZF_FORCE_ENV', 'production');
 
 function zf_detect_env(): string {
     if (ZF_FORCE_ENV !== '') {
