@@ -471,6 +471,56 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 
 <!-- ======================================================
+     SOCIAL MEDIA
+====================================================== -->
+<section class="py-20 max-w-5xl mx-auto px-4 sm:px-6 text-center">
+  <div class="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-1.5 text-sm font-semibold text-orange-400 mb-5">
+    📲 Stay Connected
+  </div>
+  <h2 class="text-4xl font-black mb-3">Connect With Us</h2>
+  <p class="text-gray-400 max-w-xl mx-auto text-sm mb-10">
+    Follow ZoeFeeds on social media for live draw reveals, winner announcements, and updates — straight from our official channels.
+  </p>
+
+  <div class="grid sm:grid-cols-3 gap-5 max-w-3xl mx-auto">
+
+    <!-- Facebook -->
+    <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
+       class="card p-6 flex flex-col items-center gap-3 hover:border-blue-500/40 hover:-translate-y-1 transition-all">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(59,130,246,.12)">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6"><path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.9h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z"/></svg>
+      </div>
+      <div class="font-bold text-sm">Facebook</div>
+      <div class="text-xs text-gray-500">Updates &amp; announcements</div>
+    </a>
+
+    <!-- YouTube -->
+    <a href="https://youtube.com/@zoefeedsloyaltyrewards?si=j0ibB156206GB7Zc" target="_blank" rel="noopener noreferrer"
+       class="card p-6 flex flex-col items-center gap-3 hover:border-red-500/40 hover:-translate-y-1 transition-all">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(239,68,68,.12)">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#ef4444"><path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z"/></svg>
+      </div>
+      <div class="font-bold text-sm">YouTube</div>
+      <div class="text-xs text-gray-500">Live draw reveals</div>
+    </a>
+
+    <!-- TikTok -->
+    <a href="https://www.tiktok.com/@zoefeedraffles?_r=1&_t=ZN-972rGEOiGGM" target="_blank" rel="noopener noreferrer"
+       class="card p-6 flex flex-col items-center gap-3 hover:border-cyan-400/40 hover:-translate-y-1 transition-all">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(6,182,212,.12)">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff"><path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z"/></svg>
+      </div>
+      <div class="font-bold text-sm">TikTok</div>
+      <div class="text-xs text-gray-500">Behind the scenes</div>
+    </a>
+
+  </div>
+</section>
+
+
+
+
+<!-- ======================================================
      FAQ  — 20 Questions
 ====================================================== -->
 <section id="faq" class="py-20 bg-[#0d1218]">

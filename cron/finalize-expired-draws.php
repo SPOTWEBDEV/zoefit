@@ -3,49 +3,49 @@
 /**
  * cron/finalize-expired-draws.php
  *
- * AUTOMATIC DRAW FINALIZATION — run this via cron every minute.
+ * THE ONLY CRON FILE YOU NEED — run every minute.
  *
- * What it does, every time it runs:
- *   1. Finds every draw with status 'active' or 'paused' whose end_date has passed.
- *   2. For each one: generates a random 15-digit winning code, scores every
- *      participant's best code against it, ranks the TOP 3, saves the winner
- *      + runners-up to draw_rankings, marks the draw 'completed', consumes
- *      all entered codes, and sends notifications.
- *   3. Logs the run to the cron_logs table (and to logs/cron.log on disk).
+ * What it does each run:
+ *   1. Acquires a lock file so two runs never overlap
+ *   2. Auto-activates any PENDING draws whose start_date has arrived
+ *   3. Auto-finalizes any ACTIVE draws whose end_date has passed:
+ *        a. Generates a random 15-digit winning code
+ *        b. Scores every participant's best code digit-by-digit
+ *        c. Ranks TOP 3, saves to draw_rankings
+ *        d. Records winner in draw_winners
+ *        e. Marks draw 'completed', marks entered codes 'used'
+ *        f. Sends winner email + in-app notification
+ *        g. Emails all admins with result
+ *        h. If no entries → marks completed, emails admin warning
+ *   4. Logs the run to the cron_logs DB table
  *
- * This script is idempotent — running it twice in the same minute does
- * nothing extra, because finalize_draw() throws if a draw is no longer
- * 'active'/'paused' (already completed draws are simply skipped).
+ * Idempotent — running twice in the same minute is safe.
  *
  * ── HOW TO SCHEDULE ─────────────────────────────────────────
  *
- * cPanel / shared hosting — Cron Jobs section, add:
- *   * * * * *  /usr/bin/php /home/USER/public_html/zoefeeds/cron/finalize-expired-draws.php >> /home/USER/public_html/zoefeeds/logs/cron.log 2>&1
+ * cPanel Cron Jobs (shared hosting):
+ *   * * * * *  /usr/bin/php /home/USER/public_html/cron/finalize-expired-draws.php >> /home/USER/public_html/logs/cron.log 2>&1
  *
- * VPS / Linux crontab (crontab -e):
+ * VPS / Linux (crontab -e):
  *   * * * * *  php /var/www/zoefeeds/cron/finalize-expired-draws.php >> /var/www/zoefeeds/logs/cron.log 2>&1
  *
- * Windows Task Scheduler (run every 1 minute):
+ * Windows Task Scheduler (every 1 minute):
  *   Program:  C:\php\php.exe
  *   Args:     C:\path\to\zoefeeds\cron\finalize-expired-draws.php
  *
- * You can also trigger it manually for testing:
- *   php cron/finalize-expired-draws.php
- *
- * Or hit it over HTTP from an external cron service (cron-job.org, EasyCron)
- * by visiting cron/finalize-expired-draws.php?key=YOUR_SECRET — see the
- * CRON_HTTP_SECRET check below. Recommended only if shell/CLI cron is
- * unavailable on your host.
+ * HTTP fallback (cron-job.org / EasyCron — only if CLI cron unavailable):
+ *   https://yoursite.com/cron/finalize-expired-draws.php?key=YOUR_SECRET
+ *   Set CRON_HTTP_SECRET below to a long random string first.
  * ============================================================
  */
 
-// Allow both CLI execution and authenticated HTTP execution
+// ── HTTP vs CLI ────────────────────────────────────────────
 $isCli = (php_sapi_name() === 'cli');
 
-define('CRON_HTTP_SECRET', 'change-this-to-a-long-random-string'); // used only for HTTP trigger fallback
+// Change this to a long random string if using HTTP trigger
+define('CRON_HTTP_SECRET', 'change-this-to-a-long-random-string');
 
 if (!$isCli) {
-    // HTTP fallback mode — require a secret key to prevent abuse
     $key = $_GET['key'] ?? '';
     if (!hash_equals(CRON_HTTP_SECRET, $key)) {
         http_response_code(403);
@@ -54,69 +54,137 @@ if (!$isCli) {
     header('Content-Type: text/plain');
 }
 
+// ── Bootstrap ──────────────────────────────────────────────
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/draw-engine.php';
+require_once __DIR__ . '/../includes/draw-engine.php'; // finalize_all_expired_draws()
 
-$startTime = microtime(true);
-$db = getDB();
+// ── Lock file — prevent overlapping runs ───────────────────
+$lockFile = sys_get_temp_dir() . '/zoefeeds_draws_cron.lock';
+$lock     = fopen($lockFile, 'c');
+if (!flock($lock, LOCK_EX | LOCK_NB)) {
+    // Another instance is already running — exit silently
+    exit(0);
+}
 
+// ── Logger ─────────────────────────────────────────────────
 function cron_echo(string $msg): void {
     echo '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL;
 }
 
-cron_echo('ZoeFeeds draw finalization cron — starting run…');
+$startTime = microtime(true);
+$db        = getDB();
 
-// Run the engine on all expired active/paused draws
+cron_echo('ZoeFeeds draw cron — starting run…');
+
+// ══════════════════════════════════════════════════════════
+// STEP 1 — Auto-activate PENDING draws whose start_date
+//           has arrived. draw-engine handles this internally
+//           but we also log each activation here.
+// ══════════════════════════════════════════════════════════
+$pendingToActivate = $db->query(
+    "SELECT id, title FROM draws
+     WHERE status = 'pending' AND start_date <= NOW()"
+)->fetchAll();
+
+foreach ($pendingToActivate as $p) {
+    cron_echo("Will activate draw #{$p['id']}: {$p['title']}");
+}
+
+// ══════════════════════════════════════════════════════════
+// STEP 2 — Run the draw engine (activates + finalizes)
+// ══════════════════════════════════════════════════════════
 $results = finalize_all_expired_draws($db, 'system', 0);
 
-$found  = count($results);
-$ok     = 0;
-$failed = 0;
+$found       = count($results);
+$ok          = 0;
+$failed      = 0;
 $detailLines = [];
 
-if ($found === 0) {
-    cron_echo('No expired draws found. Nothing to do.');
+if ($found === 0 && empty($pendingToActivate)) {
+    cron_echo('Nothing to do — no pending activations, no expired draws.');
 } else {
-    cron_echo("Found {$found} expired draw(s). Processing…");
+    if (!empty($pendingToActivate)) {
+        cron_echo('Activated ' . count($pendingToActivate) . ' pending draw(s).');
+    }
 
-    foreach ($results as $r) {
-        if (!empty($r['success'])) {
-            $ok++;
-            $topNames = array_map(fn($t) => "#{$t['rank']} {$t['name']} ({$t['matched_digits']}/15)", $r['top3']);
-            $line = "✅ Draw #{$r['draw_id']} \"{$r['draw_title']}\" finalized. " .
-                    "Winning code: {$r['winning_code']}. " .
-                    "Entries: {$r['total_entries']}. " .
-                    "Top 3: " . implode(' | ', $topNames);
-            cron_echo($line);
-            $detailLines[] = $line;
-        } else {
-            $failed++;
-            $line = "❌ Draw #{$r['draw_id']} \"{$r['draw_title']}\" FAILED: {$r['error']}";
-            cron_echo($line);
-            $detailLines[] = $line;
+    if ($found > 0) {
+        cron_echo("Finalized {$found} expired draw(s).");
+
+        foreach ($results as $r) {
+            if (!empty($r['success'])) {
+                $ok++;
+
+                if (!empty($r['top3'])) {
+                    $topNames = array_map(
+                        fn($t) => "#{$t['rank']} {$t['name']} ({$t['matched_digits']}/15)",
+                        $r['top3']
+                    );
+                    $top3str = implode(' | ', $topNames);
+                } else {
+                    $top3str = 'no entries';
+                }
+
+                $note = !empty($r['note']) ? " [{$r['note']}]" : '';
+                $line = "✅ Draw #{$r['draw_id']} \"{$r['draw_title']}\""
+                      . " | winning code: " . ($r['winning_code'] ?? 'n/a')
+                      . " | entries: {$r['total_entries']}"
+                      . " | top3: {$top3str}{$note}";
+
+                cron_echo($line);
+                $detailLines[] = $line;
+
+            } else {
+                $failed++;
+                $line = "❌ Draw #{$r['draw_id']} \"{$r['draw_title']}\" — {$r['error']}";
+                cron_echo($line);
+                $detailLines[] = $line;
+            }
         }
     }
 }
 
-// Log this run to the database for the admin dashboard / debugging
+// ══════════════════════════════════════════════════════════
+// STEP 3 — Write run record to cron_logs table
+// ══════════════════════════════════════════════════════════
 try {
+    // Auto-create table if it doesn't exist yet
+    $db->exec("CREATE TABLE IF NOT EXISTS `cron_logs` (
+        `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `job_name`     VARCHAR(100) NOT NULL,
+        `draws_found`  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+        `draws_ok`     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+        `draws_failed` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+        `detail`       TEXT DEFAULT NULL,
+        `run_at`       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `idx_job`  (`job_name`),
+        KEY `idx_run`  (`run_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $db->prepare(
-        "INSERT INTO cron_logs (job_name, draws_found, draws_ok, draws_failed, detail, run_at)
+        "INSERT INTO cron_logs
+           (job_name, draws_found, draws_ok, draws_failed, detail, run_at)
          VALUES (?,?,?,?,?,NOW())"
     )->execute([
         'finalize-expired-draws',
         $found,
         $ok,
         $failed,
-        implode("\n", $detailLines),
+        $detailLines ? implode("\n", $detailLines) : null,
     ]);
+
 } catch (\Exception $e) {
-    cron_echo('WARNING: could not write to cron_logs table: ' . $e->getMessage());
+    cron_echo('WARNING: could not write to cron_logs: ' . $e->getMessage());
 }
 
-$elapsed = round(microtime(true) - $startTime, 2);
-cron_echo("Run complete in {$elapsed}s. Found: {$found}, OK: {$ok}, Failed: {$failed}.");
+// ── Done ───────────────────────────────────────────────────
+$elapsed = round(microtime(true) - $startTime, 3);
+cron_echo("Run complete in {$elapsed}s — activated: " . count($pendingToActivate)
+        . ", finalized: {$found}, ok: {$ok}, failed: {$failed}.");
+
+// Release lock
+flock($lock, LOCK_UN);
+fclose($lock);
 
 if (!$isCli) {
     echo "\nDone.\n";
