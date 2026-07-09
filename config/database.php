@@ -23,7 +23,7 @@ function zf_detect_env(): string {
     // so it always fell through to 'local' before. Require an explicit
     // ZF_ENV env var for CLI runs instead of silently guessing wrong.
     if (php_sapi_name() === 'cli') {
-        $cliEnv = getenv('ZF_ENV');
+        $cliEnv = $_ENV['ZF_ENV']; 
         if ($cliEnv !== false && in_array($cliEnv, ['local', 'staging', 'production'], true)) {
             return $cliEnv;
         }
