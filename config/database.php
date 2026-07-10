@@ -1,6 +1,6 @@
 <?php
 
-define('ZF_FORCE_ENV', 'production');
+define('ZF_FORCE_ENV', '');
 
 function zf_detect_env(): string {
     if (ZF_FORCE_ENV !== '') {

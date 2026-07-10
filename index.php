@@ -505,7 +505,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
     </a>
 
     <!-- TikTok -->
-    <a href="https://www.tiktok.com/@zoefeedraffles?_r=1&_t=ZN-972rGEOiGGM" target="_blank" rel="noopener noreferrer"
+    <a href="https://www.tiktok.com/@zoefeedsraffles?_r=1&_t=ZN-97tsm7fZ1Mc" target="_blank" rel="noopener noreferrer"
        class="card p-6 flex flex-col items-center gap-3 hover:border-cyan-400/40 hover:-translate-y-1 transition-all">
       <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(6,182,212,.12)">
         <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff"><path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z"/></svg>
