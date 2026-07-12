@@ -1,5 +1,5 @@
 <?php
-// components/vendor-sidebar.php
+// components/user-sidebar.php
 // Dedicated sidebar for the vendor portal.
 // Reads from $_SESSION['vendor_id'] and vendors table only — no users table.
 
@@ -36,7 +36,7 @@ $isActive = ($vendorStatus === 'active');
 ?>
 
 <!-- ── Vendor Desktop / Tablet Sidebar ──────────────────── -->
-<nav class="sidebar flex flex-col" id="vendor-sidebar" style="--sidebar-accent:#7c3aed">
+<nav class="sidebar flex flex-col z-100" id="user-sidebar" style="--sidebar-accent:#7c3aed">
 
   <!-- Logo — purple variant -->
   <div class="sidebar-logo flex items-center gap-2">
@@ -163,48 +163,48 @@ $isActive = ($vendorStatus === 'active');
 </nav>
 
 <!-- Mobile overlay -->
-<div class="fixed inset-0 bg-black/60 z-40 md:hidden hidden" id="sidebar-overlay" onclick="closeVendorSidebar()"></div>
+<div class="fixed inset-0 bg-black/60 z-40 md:hidden hidden" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- ── Bottom Navigation (mobile) — vendor purple theme ─── -->
 <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50"
      style="background:rgba(10,15,26,0.97);backdrop-filter:blur(20px);border-top:1px solid rgba(124,58,237,.2);padding-bottom:env(safe-area-inset-bottom)">
   <div class="flex items-stretch h-16">
 
+    <!-- 1. Overview / Dashboard -->
     <a href="<?= APP_URL ?>/vendor/dashboard.php"
        class="bnav-item <?= $currentPage==='dashboard'&&!$currentTab?'vbnav-active':'' ?>">
       <svg class="bnav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
       <span>Overview</span>
     </a>
 
-    <a href="<?= APP_URL ?>/vendor/dashboard.php?tab=codes"
-       class="bnav-item <?= $currentTab==='codes'?'vbnav-active':'' ?>">
-      <svg class="bnav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
-      <span>Codes</span>
-    </a>
-
-    <!-- Centre FAB — Transfer -->
-    <?php if ($isActive): ?>
-    <a href="<?= APP_URL ?>/vendor/transfer.php" class="flex-1 flex flex-col items-center justify-center relative">
-      <div class="w-14 h-14 rounded-2xl flex items-center justify-center -mt-7 transition-transform active:scale-90"
-           style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 28px rgba(124,58,237,0.55)">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-      </div>
-      <span class="text-gray-500 mt-0.5" style="font-size:10px">Transfer</span>
-    </a>
-    <?php else: ?>
-    <div class="flex-1"></div>
-    <?php endif; ?>
-
+    <!-- 2. History -->
     <a href="<?= APP_URL ?>/vendor/dashboard.php?tab=history"
        class="bnav-item <?= $currentTab==='history'?'vbnav-active':'' ?>">
       <svg class="bnav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       <span>History</span>
     </a>
 
+    <!-- 3. Centre FAB — Codes (Exact Original Transfer Style) -->
+    <a href="<?= APP_URL ?>/vendor/dashboard.php?tab=codes" class="flex-1 flex flex-col items-center justify-center relative">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center -mt-7 transition-transform active:scale-90"
+           style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 28px rgba(124,58,237,0.55)">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+      </div>
+      <span class="text-gray-500 mt-0.5" style="font-size:10px">Codes</span>
+    </a>
+
+    <!-- 4. API Keys -->
     <a href="<?= APP_URL ?>/vendor/dashboard.php?tab=keys"
        class="bnav-item <?= $currentTab==='keys'?'vbnav-active':'' ?>">
       <svg class="bnav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
       <span>API Keys</span>
+    </a>
+
+    <!-- 5. Profile -->
+    <a href="<?= APP_URL ?>/vendor/dashboard.php?tab=profile"
+       class="bnav-item <?= $currentTab==='profile'?'vbnav-active':'' ?>">
+      <svg class="bnav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      <span>Profile</span>
     </a>
 
   </div>
@@ -224,27 +224,15 @@ $isActive = ($vendorStatus === 'active');
   .bnav-icon    { width:22px; height:22px; }
 
   /* Override nav-item active style for purple vendor theme */
-  #vendor-sidebar .nav-item.active,
-  #vendor-sidebar .nav-item:hover {
+  #user-sidebar .nav-item.active,
+  #user-sidebar .nav-item:hover {
     background: rgba(124,58,237,.12) !important;
     border-left-color: #7c3aed !important;
     color: #c4b5fd !important;
   }
-  #vendor-sidebar .nav-item.active {
+  #user-sidebar .nav-item.active {
     border-left-color: #a78bfa !important;
     color: #e9d5ff !important;
   }
 </style>
 
-<script>
-function closeVendorSidebar() {
-  document.getElementById('vendor-sidebar').classList.remove('open');
-  document.getElementById('sidebar-overlay').classList.add('hidden');
-}
-function toggleSidebar() {
-  const sb   = document.getElementById('vendor-sidebar');
-  const ov   = document.getElementById('sidebar-overlay');
-  const open = sb.classList.toggle('open');
-  ov.classList.toggle('hidden', !open);
-}
-</script>

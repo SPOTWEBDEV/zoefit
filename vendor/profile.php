@@ -51,7 +51,7 @@ $vPage='';
     <button onclick="toggleSidebar()" class="md:hidden text-gray-400 text-2xl mr-3">☰</button>
     <h1 class="text-xl font-bold">Vendor Profile</h1>
   </div>
-  <div class="p-6 w-[80%] mx-auto">
+  <div class="p-6 mx-auto">
     <?php if($msg): ?><div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm"><?= e($msg) ?></div><?php endif; ?>
     <?php if($err): ?><div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm"><?= e($err) ?></div><?php endif; ?>
 

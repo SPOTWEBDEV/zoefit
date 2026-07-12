@@ -197,16 +197,3 @@ $currentPage = $currentPage ?? '';
   }
 </style>
 
-<script>
-  function closeSidebar() {
-    document.getElementById('user-sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.add('hidden');
-  }
-
-  function toggleSidebar() {
-    const sb = document.getElementById('user-sidebar');
-    const ov = document.getElementById('sidebar-overlay');
-    const open = sb.classList.toggle('open');
-    ov.classList.toggle('hidden', !open);
-  }
-</script>
