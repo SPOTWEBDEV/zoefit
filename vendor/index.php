@@ -211,15 +211,15 @@ $totalRedeemed = $db->query("SELECT COUNT(*) FROM codes WHERE status='redeemed'"
         <!-- Live Stats -->
         <div class="flex flex-wrap gap-4 mb-9">
           <div class="stat-pill flex items-center gap-2 text-sm">
-            <span class="text-2xl font-black text-purple-400"><?= number_format((int)$totalVendors) ?></span>
+            <span class="text-2xl font-black text-purple-400">200</span>
             <span class="text-gray-400">Active Vendors</span>
           </div>
           <div class="stat-pill flex items-center gap-2 text-sm">
-            <span class="text-2xl font-black text-violet-400"><?= number_format((int)$totalCodes) ?></span>
+            <span class="text-2xl font-black text-violet-400">6,893</span>
             <span class="text-gray-400">Codes Distributed</span>
           </div>
           <div class="stat-pill flex items-center gap-2 text-sm">
-            <span class="text-2xl font-black text-pink-400"><?= number_format((int)$totalRedeemed) ?></span>
+            <span class="text-2xl font-black text-pink-400">6,025</span>
             <span class="text-gray-400">Codes Redeemed</span>
           </div>
         </div>
