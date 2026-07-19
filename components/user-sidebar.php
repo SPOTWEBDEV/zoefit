@@ -129,7 +129,7 @@ $currentPage = $currentPage ?? '';
       <span>Winners</span>
     </a>
 
-    <a href="javascript:void(0)" onclick="toggleSidebar()"
+    <a href="<?= APP_URL ?>/user/profile.php" 
       class="bnav-item <?= in_array($currentPage, ['profile', 'notifications', 'transactions', 'codes']) ? 'bnav-active' : '' ?>">
       <div class="relative">
         <svg class="bnav-icon" fill="<?= $currentPage === 'profile' ? 'currentColor' : 'none' ?>" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,7 +137,7 @@ $currentPage = $currentPage ?? '';
         </svg>
         <span id="profile-notif-dot" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full hidden"></span>
       </div>
-      <span>Menu</span>
+      <span>Profile</span>
     </a>
 
   </div>

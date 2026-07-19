@@ -233,7 +233,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
       <div class="v-group">
         <label class="v-label">Why do you want to be a vendor? <span class="text-gray-500 font-normal">(recommended)</span></label>
         <textarea name="reason" class="v-input" rows="3"
-          placeholder="e.g. I run a small shop and want to reward customers who buy from me..."><?= e($_POST['reason'] ?? '') ?></textarea>
+          placeholder="e.g. I run a business and want to resale zoefeeds products and gift the raffle codes to my customers and spread the gift code in my area and I also want to share my own codes for free to whoever I want to gift it as just a gift!"><?= e($_POST['reason'] ?? '') ?></textarea>
         <div class="v-hint">A clear reason improves your approval chances.</div>
       </div>
 

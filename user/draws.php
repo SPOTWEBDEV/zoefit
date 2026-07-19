@@ -62,7 +62,7 @@ $draws = $draws->fetchAll();
           <div class="text-sm text-gray-500 my-3">Starts <?= date('M j, Y g:ia',strtotime($d['start_date'])) ?></div>
           <?php endif; ?>
           <?php if($d['status']==='active'): ?>
-          <a href="<?= APP_URL ?>/user/draw-detail.php?id=<?= $d['id'] ?>" class="btn btn-primary w-full text-sm">Enter Draw →</a>
+          <a href="<?= APP_URL ?>/user/enter-draw.php?id=<?= $d['id'] ?>" class="btn btn-primary w-full text-sm">Enter Draw →</a>
           <?php elseif($d['status']==='completed' && $d['winner_user_id']): ?>
           <a href="<?= APP_URL ?>/user/draw-detail.php?id=<?= $d['id'] ?>" class="btn btn-secondary w-full text-sm">View Results</a>
           <?php else: ?>

@@ -23,7 +23,7 @@ $draw = $db->prepare(
      WHERE d.id = ? AND d.status = 'completed'"
 );
 $draw->execute([$drawId]); $draw = $draw->fetch();
-if (!$draw) redirect(APP_URL . '/user/past-winners.php');
+// if (!$draw) redirect(APP_URL . '/user/past-winners.php');
 
 $loggedInUserId = $_SESSION['user_id'] ?? null;
 $isLoggedIn     = (bool)$loggedInUserId;
@@ -115,7 +115,7 @@ $toffset = ($tpage - 1) * $tper;
 $tpages  = (int)ceil($totalParticipants / $tper);
 $tableRows = array_slice($scoredParticipants, $toffset, $tper);
 
-$currentPage = 'past-winners';
+$currentPage = 'draw-detail';
 $pageTitle   = e($draw['title']) . ' — Draw Result';
 
 function maskName(string $name, bool $isMe = false): string {
