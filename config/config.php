@@ -32,6 +32,7 @@ define('LOGS_PER_PAGE',         25);
 define('CODE_LENGTH',           15);
 define('UPLOAD_PATH',           realpath(__DIR__.'/../uploads').DIRECTORY_SEPARATOR);
 define('UPLOAD_URL',            APP_URL.'/uploads/');
+define('SESSION_IDLE_TIMEOUT', 900); // seconds of inactivity before auto-logout (15 min)
 
 function startAppSession(): void {
   if (session_status() === PHP_SESSION_NONE) {
@@ -41,7 +42,48 @@ function startAppSession(): void {
     ]);
     session_start();
   }
+  enforceSessionTimeout();
 }
+
+function enforceSessionTimeout(): void {
+  $roleKeys = [
+    'user'        => 'user_id',
+    'admin'       => 'admin_id',
+    'vendor'      => 'vendor_id',
+    'super_admin' => 'super_admin_id',
+  ];
+
+  $activeRole = null;
+  foreach ($roleKeys as $role => $key) {
+    if (!empty($_SESSION[$key])) { $activeRole = $role; break; }
+  }
+
+  if ($activeRole !== null) {
+    if (!empty($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > SESSION_IDLE_TIMEOUT) {
+      // Wipe session data
+      $_SESSION = [];
+      if (ini_get('session.use_cookies')) {
+        $p = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+      }
+      session_destroy();
+
+      if (isAjax()) jsonResponse(['error'=>'Session expired due to inactivity'], 401);
+
+      $loginPaths = [
+        'user'        => '/user/login.php',
+        'admin'       => '/admin/login.php',
+        'vendor'      => '/vendor/login.php',
+        'super_admin' => '/admin/super-login.php',
+      ];
+      redirect(APP_URL . $loginPaths[$activeRole] . '?expired=1');
+    }
+  }
+
+  // Touch the activity timestamp on every request (login or not)
+  $_SESSION['last_activity'] = time();
+}
+
 function generateCsrf(): string {
   startAppSession();
   if (empty($_SESSION[CSRF_TOKEN_NAME])) $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));

@@ -57,9 +57,18 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
             }
 
             if (!$error) {
+                // Generate a cryptographically secure UUIDv4
+                $data = random_bytes(16);
+                $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // Set version to 0100 (4)
+                $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // Set bits 6-7 to 10
+                $uuid = vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+
                 $hashed = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-                $db->prepare("INSERT INTO users (phone, full_name, email, password) VALUES (?,?,?,?)")
-                   ->execute([$normalizedPhone, $fullName, $email ?: null, $hashed]);
+                
+                // Added uuid to the INSERT column list and parameters array
+                $db->prepare("INSERT INTO users (uuid, phone, full_name, email, password) VALUES (?,?,?,?,?)")
+                   ->execute([$uuid, $normalizedPhone, $fullName, $email ?: null, $hashed]);
+                   
                 $userId = (int)$db->lastInsertId();
                 auditLog('user', $userId, 'register', 'New customer registered');
                 createNotification($userId, '👋 Welcome to ZoeFeeds!',

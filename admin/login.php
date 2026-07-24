@@ -4,6 +4,10 @@ require_once __DIR__ . '/../config/database.php';
 startAppSession();
 if (!empty($_SESSION['admin_id'])) redirect(APP_URL.'/admin/dashboard.php');
 $error = '';
+if (isset($_GET['expired']) && !$error) {
+  $error = 'Your session expired due to inactivity. Please log in again.';
+}
+
 if (isPost()) {
   if (!verifyCsrf($_POST[CSRF_TOKEN_NAME]??'')) { $error='Invalid request.'; }
   else {

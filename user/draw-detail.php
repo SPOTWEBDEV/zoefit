@@ -286,7 +286,7 @@ function maskName(string $name, bool $isMe = false): string {
           <?= strtoupper(mb_substr($draw['winner_name'],0,1)) ?>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-bold text-yellow-400 text-lg"><?= e(maskName($draw['winner_name'], (int)($draw['winner_uid']??0) === $loggedInUserId)) ?></div>
+          <div class="font-bold text-yellow-400 text-lg"><?= $draw['winner_name'], (int)($draw['winner_uid']??0) === $loggedInUserId ?></div>
           <div class="text-sm text-gray-400"><?= e(_maskPhone($draw['winner_phone'])) ?></div>
           <?php if ($draw['tiebreaker_used']): ?>
           <div class="text-xs text-orange-400 mt-0.5">via <?= e(str_replace('_',' ',$draw['tiebreaker_used'])) ?></div>
@@ -343,7 +343,7 @@ function maskName(string $name, bool $isMe = false): string {
           <?php if ($isMe): ?><div class="text-xs text-orange-400 font-bold mb-1">← You</div><?php endif; ?>
           <div class="text-3xl mb-2"><?= $pm[0] ?></div>
           <div class="font-bold <?= $pm[2] ?> text-sm mb-0.5">
-            <?= e(maskName($r['full_name'], $isMe)) ?>
+            <?= $r['full_name'] ?>
           </div>
           <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold mt-1"
                style="background:rgba(255,255,255,.06)">
@@ -413,7 +413,7 @@ function maskName(string $name, bool $isMe = false): string {
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <div class="font-semibold text-sm <?= $isMe?'text-orange-400':'text-white' ?>">
-                    <?= e(maskName($p['full_name'], $isMe)) ?>
+                    <?= $p['full_name'] ?>
                   </div>
                   <?php if ($isMe): ?>
                   <span class="text-xs bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-full px-1.5 py-0.5 font-bold">You</span>

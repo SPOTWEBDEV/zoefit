@@ -268,15 +268,15 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           <!-- Live Stats — rendered from DB and updated in real-time via JS -->
           <div class="flex flex-wrap gap-6 mb-9 text-sm">
             <div class="flex items-center gap-2">
-              <span id="stat-users" class="live-counter text-2xl font-black text-orange-400">8,000</span>
+              <span id="stat-users" class="live-counter text-2xl font-black text-orange-400"><?php echo $totalUsers  ?></span>
               <span class="text-gray-500">Registered</span>
             </div>
             <div class="flex items-center gap-2">
-              <span id="stat-winners" class="live-counter text-2xl font-black text-green-400">1,234</span>
+              <span id="stat-winners" class="live-counter text-2xl font-black text-green-400"><?php echo $totalWinners ?></span>
               <span class="text-gray-500">Winners</span>
             </div>
             <div class="flex items-center gap-2">
-              <span id="stat-draws" class="live-counter text-2xl font-black text-cyan-400">567</span>
+              <span id="stat-draws" class="live-counter text-2xl font-black text-cyan-400"><?php echo $totalDraws ?></span>
               <span class="text-gray-500">Draws Completed</span>
             </div>
           </div>
@@ -575,26 +575,41 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <!-- ======================================================
      TESTIMONIALS
 ====================================================== -->
-  <section class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
+<section class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
     <div class="text-center mb-12">
       <h2 class="text-4xl font-black mb-3">What Participants Say</h2>
       <p class="text-gray-400 text-sm">Real experiences from real ZoeFeeds users</p>
     </div>
     <div class="grid md:grid-cols-3 gap-5">
-      <?php $testimonials = [
-        ['E. O.', 'Lagos', '⭐⭐⭐⭐⭐', 'I redeemed 3 codes and won in the monthly draw! The process was completely transparent — I watched every digit revealed live. ZoeFeeds is legit!'],
-        ['B. A.', 'Abuja', '⭐⭐⭐⭐⭐', 'Got my codes through an eligible purchase, entered the draw, and won. The notification came same day. Easy process and everything was verified properly.'],
-        ['C. N.', 'Port Harcourt', '⭐⭐⭐⭐⭐', 'The live draw experience is amazing. You can see each digit revealed on screen in real-time. Very transparent, exactly as they promised in their terms.'],
-      ];
+      <?php
+      $testimonials = getDB()->query(
+        "SELECT full_name, role_title, photo, rating, content
+         FROM testimonials
+         WHERE status='active'
+         ORDER BY display_order ASC, created_at DESC
+         LIMIT 6"
+      )->fetchAll();
+
       foreach ($testimonials as $t): ?>
         <div class="card p-6">
-          <div class="text-yellow-400 mb-3"><?= $t[2] ?></div>
-          <p class="text-gray-300 text-sm leading-relaxed mb-5">"<?= $t[3] ?>"</p>
+          <div class="text-yellow-400 mb-3">
+            <?= str_repeat('⭐', (int)$t['rating']) ?>
+          </div>
+          <p class="text-gray-300 text-sm leading-relaxed mb-5">"<?= nl2br(e($t['content'])) ?>"</p>
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center font-bold text-orange-400"><?= $t[0][0] ?></div>
+            <?php if ($t['photo'] && file_exists(UPLOAD_PATH.$t['photo'])): ?>
+            <img src="<?= APP_URL ?>/uploads/<?= e($t['photo']) ?>"
+                 class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
+            <?php else: ?>
+            <div class="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center font-bold text-orange-400 flex-shrink-0">
+              <?= e(mb_substr($t['full_name'], 0, 1)) ?>
+            </div>
+            <?php endif; ?>
             <div>
-              <div class="font-semibold text-sm"><?= $t[0] ?></div>
-              <div class="text-xs text-gray-500"><?= $t[1] ?></div>
+              <div class="font-semibold text-sm"><?= e($t['full_name']) ?></div>
+              <?php if ($t['role_title']): ?>
+              <div class="text-xs text-gray-500"><?= e($t['role_title']) ?></div>
+              <?php endif; ?>
             </div>
           </div>
         </div>

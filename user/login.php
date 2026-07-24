@@ -5,6 +5,9 @@ startAppSession();
 if (!empty($_SESSION['user_id'])) redirect(APP_URL . '/user/dashboard.php');
 
 $error = '';
+if (isset($_GET['expired']) && !$error) {
+  $error = 'Your session expired due to inactivity. Please log in again.';
+}
 
 if (isPost()) {
   if (!verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {

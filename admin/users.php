@@ -216,6 +216,7 @@ $aPage = 'users';
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Name</th>
               <th>Phone</th>
               <th>Type</th>
@@ -226,10 +227,16 @@ $aPage = 'users';
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($records as $r):
+            <?php 
+            $count = 0;
+            foreach ($records as $r):
+              $count++;
               $isVendor = ($r['record_type'] === 'vendor');
             ?>
             <tr>
+              <td>
+                <?php echo $count ?>
+              </td>
               <!-- Name + email -->
               <td>
                 <div class="flex items-center gap-2">
