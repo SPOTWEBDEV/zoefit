@@ -15,6 +15,11 @@ $user = $stmt->fetch();
 $totalCodes   = $db->prepare("SELECT COUNT(*) FROM codes WHERE current_owner = ? AND status NOT IN ('used')");
 $totalCodes->execute([$userId]); $totalCodes = $totalCodes->fetchColumn();
 
+$totalnotUsedCodes = $db->prepare("SELECT COUNT(*) FROM codes WHERE current_owner = ? AND status = 'redeemed'");
+$totalnotUsedCodes->execute([$userId]); 
+$totalnotUsedCodes = $totalnotUsedCodes->fetchColumn();
+
+
 $usedInDraws  = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE user_id = ?");
 $usedInDraws->execute([$userId]); $usedInDraws = $usedInDraws->fetchColumn();
 
@@ -68,7 +73,7 @@ $pageTitle = 'Dashboard';
         <div>
           <div class="text-sm text-orange-200 font-medium">Eligibility Balance</div>
           <div class="flex items-center gap-3 mt-2">
-            <div class="text-4xl font-display font-bold" id="balance-value" data-value="<?= $user['balance'] ?>" data-hidden="0"><?= $user['balance'] ?></div>
+            <div class="text-4xl font-display font-bold" id="balance-value" data-value="<?= $totalnotUsedCodes ?>" data-hidden="0"><?= $totalnotUsedCodes ?></div>
             <button id="balance-toggle" onclick="toggleBalance()" class="text-xl">👁</button>
           </div>
           <div class="text-sm text-orange-200 mt-1">Active Raffle Codes</div>
@@ -90,14 +95,16 @@ $pageTitle = 'Dashboard';
         <div class="text-2xl font-bold font-display text-orange-400"><?= $totalCodes ?></div>
         <div class="text-xs text-gray-400 mt-1">Total Codes</div>
       </div>
+      
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold font-display text-blue-400"><?= $usedInDraws ?></div>
-        <div class="text-xs text-gray-400 mt-1">Draw Entries</div>
+        <div class="text-xs text-gray-400 mt-1">Total Codes In Draws</div>
       </div>
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold font-display text-green-400"><?= $totalWins ?></div>
         <div class="text-xs text-gray-400 mt-1">Wins</div>
       </div>
+      
     </div>
 
     <!-- Active Draws -->

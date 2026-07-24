@@ -64,20 +64,39 @@ function renderCode(item) {
   </div>`;
 }
 
+// Recreates #codes-loader if a previous InfiniteScroll run removed it
+function ensureLoaderElement() {
+  let loader = document.getElementById('codes-loader');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'codes-loader';
+    loader.className = 'py-6 text-center text-gray-500 text-sm';
+    document.getElementById('codes-container').insertAdjacentElement('afterend', loader);
+  }
+  return loader;
+}
+
 function filterCodes(filter) {
   currentFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => {
     b.classList.toggle('!border-orange-500', b.dataset.filter===filter);
     b.classList.toggle('!text-orange-400', b.dataset.filter===filter);
   });
+
   document.getElementById('codes-container').innerHTML = '';
-  document.getElementById('codes-loader').innerHTML = `<div class="skeleton h-16 rounded-xl mb-3"></div><div class="skeleton h-16 rounded-xl mb-3"></div><div class="skeleton h-16 rounded-xl"></div>`;
-  if (scroller) scroller.done = false;
+
+  const loader = ensureLoaderElement();
+  loader.innerHTML = `<div class="skeleton h-16 rounded-xl mb-3"></div><div class="skeleton h-16 rounded-xl mb-3"></div><div class="skeleton h-16 rounded-xl"></div>`;
+
+  // Tear down the old scroller instance before creating a new one,
+  // so it isn't still watching a detached loader node
+  if (scroller && typeof scroller.destroy === 'function') scroller.destroy();
+
   initScroller();
 }
 
 function initScroller() {
-  const loader = document.getElementById('codes-loader');
+  const loader = ensureLoaderElement();
   loader.innerHTML = '';
   scroller = new InfiniteScroll({
     container: document.getElementById('codes-container'),

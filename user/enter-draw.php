@@ -1,6 +1,6 @@
 <?php
 // user/enter-draw.php
-// User selects one of their available codes and enters a specific live draw.
+// User selects one or more of their available codes and enters a specific live draw.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 $auth = requireUser(); $userId = $auth['id'];
@@ -18,50 +18,71 @@ if (!$draw) {
 }
 
 $msg = $err = '';
+$enteredCountMsg = 0;
+$skippedMsg = [];
 
-// ── POST: enter the draw ───────────────────────────────────
+// ── POST: enter the draw with one or more codes ────────────
 if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
-    $codeId = (int)($_POST['code_id'] ?? 0);
+    $codeIds = $_POST['code_id'] ?? [];
+    if (!is_array($codeIds)) $codeIds = [$codeIds];
+    $codeIds = array_values(array_unique(array_filter(array_map('intval', $codeIds))));
 
-    if (!$codeId) {
-        $err = 'Please select a code to enter.';
+    if (!$codeIds) {
+        $err = 'Please select at least one code to enter.';
     } else {
-        // Verify code belongs to this user and is redeemed (eligible)
-        $code = $db->prepare(
-            "SELECT * FROM codes WHERE id=? AND current_owner=? AND status='redeemed'"
-        );
-        $code->execute([$codeId, $userId]); $code = $code->fetch();
+        $enteredCount = 0;
+        $skipped = [];
 
-        if (!$code) {
-            $err = 'Invalid code or code is not eligible for entry.';
-        } else {
+        foreach ($codeIds as $codeId) {
+            // Verify code belongs to this user and is redeemed (eligible)
+            $code = $db->prepare(
+                "SELECT * FROM codes WHERE id=? AND current_owner=? AND status='redeemed'"
+            );
+            $code->execute([$codeId, $userId]); $code = $code->fetch();
+
+            if (!$code) {
+                $skipped[] = "Code #$codeId (invalid or not eligible)";
+                continue;
+            }
+
             // Check not already entered this draw with this code
             $alreadyIn = $db->prepare(
                 "SELECT id FROM draw_entries WHERE draw_id=? AND code_id=?"
             );
             $alreadyIn->execute([$drawId, $codeId]);
             if ($alreadyIn->fetch()) {
-                $err = 'You have already entered this draw with that code.';
-            } else {
-                // Enter the draw
-                $db->prepare(
-                    "INSERT INTO draw_entries (draw_id, user_id, code_id, entered_at)
-                     VALUES (?,?,?,NOW())"
-                )->execute([$drawId, $userId, $codeId]);
-
-                // Mark code as reserved
-                $db->prepare(
-                    "UPDATE codes SET status='reserved' WHERE id=?"
-                )->execute([$codeId]);
-
-                createNotification($userId, '🎯 Entered Draw',
-                    'Your code has been entered into "'.($draw['title']).'"', 'draw');
-
-                auditLog('user', $userId, 'enter_draw',
-                    "User entered draw #{$drawId} with code #{$codeId}", 'draw', $drawId);
-
-                $msg = 'success';
+                $skipped[] = $code['code'].' (already entered)';
+                continue;
             }
+
+            // Enter the draw
+            $db->prepare(
+                "INSERT INTO draw_entries (draw_id, user_id, code_id, entered_at)
+                 VALUES (?,?,?,NOW())"
+            )->execute([$drawId, $userId, $codeId]);
+
+            // Mark code as reserved
+            $db->prepare(
+                "UPDATE codes SET status='reserved' WHERE id=?"
+            )->execute([$codeId]);
+
+            auditLog('user', $userId, 'enter_draw',
+                "User entered draw #{$drawId} with code #{$codeId}", 'draw', $drawId);
+
+            $enteredCount++;
+        }
+
+        if ($enteredCount > 0) {
+            createNotification($userId, '🎯 Entered Draw',
+                $enteredCount > 1
+                    ? "You entered \"{$draw['title']}\" with {$enteredCount} codes."
+                    : 'Your code has been entered into "'.$draw['title'].'"',
+                'draw');
+            $msg = 'success';
+            $enteredCountMsg = $enteredCount;
+            $skippedMsg = $skipped;
+        } else {
+            $err = 'None of the selected codes could be entered: '.implode(', ', $skipped);
         }
     }
 }
@@ -93,8 +114,6 @@ $diff    = $endTime - time();
 $dd = floor($diff/86400); $hh = floor(($diff%86400)/3600); $mm = floor(($diff%3600)/60);
 
 // ── Total entries in this draw ─────────────────────────────
-$totalEntries = (int)$db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?")
-    ->execute([$drawId]) ? 0 : 0;
 $s = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?");
 $s->execute([$drawId]); $totalEntries = (int)$s->fetchColumn();
 
@@ -121,10 +140,9 @@ $pageTitle   = 'Enter Draw';
       background:rgba(255,255,255,.03);
     }
     .code-option:hover{border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.06);}
-    .code-option input[type=radio]:checked ~ .code-option-inner,
     .code-option.selected{border-color:#f97316;background:rgba(249,115,22,.1);}
     .code-option input{position:absolute;opacity:0;width:0;height:0;}
-    .code-option-label{display:flex;align-items:center;gap:3px;}
+    .check-indicator{transition:all .15s;}
   </style>
 </head>
 <body class="bg-[#0a0f1a] text-white">
@@ -147,13 +165,21 @@ $pageTitle   = 'Enter Draw';
          style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)">
       <div class="text-5xl mb-4">🎉</div>
       <h2 class="text-xl font-black text-green-400 mb-2">You're In!</h2>
-      <p class="text-gray-400 text-sm mb-5">
-        Your code has been entered into <strong class="text-white"><?= e($draw['title']) ?></strong>.
+      <p class="text-gray-400 text-sm mb-2">
+        <?= $enteredCountMsg > 1
+            ? "<strong class='text-white'>{$enteredCountMsg} codes</strong> have been entered into"
+            : 'Your code has been entered into' ?>
+        <strong class="text-white"><?= $enteredCountMsg > 1 ? '' : ' ' ?><?= e($draw['title']) ?></strong>.
         Good luck! 🍀
       </p>
-      <div class="flex gap-3 justify-center flex-wrap">
+      <?php if ($skippedMsg): ?>
+      <p class="text-xs text-gray-500 mb-5">
+        (<?= count($skippedMsg) ?> code<?= count($skippedMsg)===1?'':'s' ?> skipped: <?= e(implode(', ', $skippedMsg)) ?>)
+      </p>
+      <?php endif; ?>
+      <div class="flex gap-3 justify-center flex-wrap mt-3">
         <a href="<?= APP_URL ?>/user/enter-draw.php?id=<?= $drawId ?>"
-           class="btn btn-secondary">+ Enter Another Code</a>
+           class="btn btn-secondary">+ Enter More Codes</a>
         <a href="<?= APP_URL ?>/user/draws.php"
            class="btn btn-primary">← Back to Draws</a>
       </div>
@@ -236,29 +262,27 @@ $pageTitle   = 'Enter Draw';
     <?php if ($msg !== 'success'): ?>
     <?php if ($myCodes): ?>
     <div class="card p-5">
-      <h3 class="font-bold mb-1">Select a Code to Enter</h3>
+      <div class="flex items-center justify-between gap-3 mb-1">
+        <h3 class="font-bold">Select Codes to Enter</h3>
+        <button type="button" id="select-all-btn" class="text-xs text-orange-400 hover:underline flex-shrink-0">Select All</button>
+      </div>
       <p class="text-gray-400 text-xs mb-4">
-        Choose one of your redeemed codes. Each code is one entry.
-        <?php if ($myEntryCount > 0): ?>
-        You can enter multiple codes to increase your chances.
-        <?php endif; ?>
+        Choose one or more of your redeemed codes. Each code counts as a separate entry —
+        selecting more codes increases your chances of winning.
       </p>
 
       <form method="POST" id="enter-form">
         <?= csrfField() ?>
-        <div class="space-y-2 mb-5 max-h-72 overflow-y-auto pr-1" id="code-list">
+        <div class="space-y-2 mb-3 max-h-72 overflow-y-auto pr-1" id="code-list">
           <?php foreach ($myCodes as $c):
             $alreadyUsedThisCode = in_array($c['id'], $enteredIds);
           ?>
           <label class="code-option block <?= $alreadyUsedThisCode ? 'opacity-50 cursor-not-allowed' : '' ?>">
-            <input type="radio" name="code_id" value="<?= $c['id'] ?>"
-                   <?= $alreadyUsedThisCode ? 'disabled' : '' ?>
-                   onchange="document.getElementById('submit-btn').disabled=false;
-                             document.querySelectorAll('.code-option').forEach(el=>el.classList.remove('selected'));
-                             this.closest('.code-option').classList.add('selected')">
+            <input type="checkbox" name="code_id[]" value="<?= $c['id'] ?>"
+                   <?= $alreadyUsedThisCode ? 'disabled' : '' ?>>
             <div class="flex items-center gap-3">
-              <div class="w-5 h-5 rounded-full border-2 border-white/20 flex items-center justify-center flex-shrink-0 radio-indicator">
-                <div class="w-2.5 h-2.5 bg-orange-500 rounded-full hidden check-dot"></div>
+              <div class="w-5 h-5 rounded-md border-2 border-white/20 flex items-center justify-center flex-shrink-0 check-indicator">
+                <span class="text-white text-xs font-bold hidden check-mark">✓</span>
               </div>
               <div class="flex-1 min-w-0">
                 <code class="text-sm font-bold tracking-wider <?= $alreadyUsedThisCode ? 'text-gray-500' : 'text-orange-400' ?>">
@@ -277,17 +301,17 @@ $pageTitle   = 'Enter Draw';
           <?php endforeach; ?>
         </div>
 
+        <div class="text-xs text-gray-500 mb-3" id="selected-count-label">0 codes selected</div>
+
         <button type="submit" id="submit-btn" disabled
                 class="btn btn-primary w-full py-3 text-base font-bold"
-                style="opacity:.5;cursor:not-allowed"
-                onmouseenter="if(!this.disabled)this.style.opacity='1'"
-                onclick="this.style.opacity='1'">
+                style="opacity:.5;cursor:not-allowed">
           🎯 Enter This Draw
         </button>
       </form>
 
       <p class="text-xs text-gray-600 text-center mt-3">
-        Your selected code will be marked as <strong>reserved</strong> and cannot be transferred or used elsewhere while in an active draw.
+        Selected codes will be marked as <strong>reserved</strong> and cannot be transferred or used elsewhere while in an active draw.
       </p>
     </div>
 
@@ -329,34 +353,67 @@ $pageTitle   = 'Enter Draw';
   tick(); setInterval(tick, 1000);
 })();
 
-// Radio visual feedback
-document.querySelectorAll('.code-option input[type=radio]').forEach(radio => {
-  radio.addEventListener('change', function () {
-    document.querySelectorAll('.radio-indicator').forEach(ri => {
-      ri.classList.remove('border-orange-500');
-      ri.classList.add('border-white/20');
-      ri.querySelector('.check-dot').classList.add('hidden');
-    });
-    const indicator = this.closest('.code-option').querySelector('.radio-indicator');
-    indicator.classList.add('border-orange-500');
-    indicator.classList.remove('border-white/20');
-    indicator.querySelector('.check-dot').classList.remove('hidden');
+// ── Multi-select checkbox behavior ─────────────────────────
+(function () {
+  const checkboxes  = document.querySelectorAll('.code-option input[type=checkbox]');
+  const submitBtn   = document.getElementById('submit-btn');
+  const countLabel  = document.getElementById('selected-count-label');
+  const selectAllBtn = document.getElementById('select-all-btn');
+  if (!checkboxes.length) return;
 
-    const btn = document.getElementById('submit-btn');
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor  = 'pointer';
-  });
-});
-
-// Confirm before submit
-document.getElementById('enter-form')?.addEventListener('submit', function (e) {
-  const selected = this.querySelector('input[name=code_id]:checked');
-  if (!selected) { e.preventDefault(); return; }
-  const code = selected.closest('.code-option').querySelector('code').textContent.trim();
-  if (!confirm('Enter draw with code:\n' + code + '\n\nYour code will be reserved until the draw ends.')) {
-    e.preventDefault();
+  function syncVisual(cb) {
+    const wrap = cb.closest('.code-option');
+    const indicator = wrap.querySelector('.check-indicator');
+    const mark = wrap.querySelector('.check-mark');
+    if (cb.checked) {
+      wrap.classList.add('selected');
+      indicator.classList.add('border-orange-500');
+      indicator.style.background = '#f97316';
+      mark.classList.remove('hidden');
+    } else {
+      wrap.classList.remove('selected');
+      indicator.classList.remove('border-orange-500');
+      indicator.style.background = 'transparent';
+      mark.classList.add('hidden');
+    }
   }
+
+  function refreshState() {
+    const checked = document.querySelectorAll('.code-option input[type=checkbox]:checked');
+    const n = checked.length;
+    countLabel.textContent = n === 0 ? '0 codes selected' : (n + (n === 1 ? ' code selected' : ' codes selected'));
+    submitBtn.disabled = n === 0;
+    submitBtn.style.opacity = n === 0 ? '.5' : '1';
+    submitBtn.style.cursor  = n === 0 ? 'not-allowed' : 'pointer';
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', function () {
+      syncVisual(this);
+      refreshState();
+    });
+  });
+
+  selectAllBtn?.addEventListener('click', function () {
+    const enabled = Array.from(checkboxes).filter(cb => !cb.disabled);
+    const allChecked = enabled.length > 0 && enabled.every(cb => cb.checked);
+    enabled.forEach(cb => { cb.checked = !allChecked; syncVisual(cb); });
+    this.textContent = allChecked ? 'Select All' : 'Deselect All';
+    refreshState();
+  });
+
+  refreshState();
+})();
+
+// Confirm before submit — lists all selected codes
+document.getElementById('enter-form')?.addEventListener('submit', function (e) {
+  const selected = this.querySelectorAll('input[name="code_id[]"]:checked');
+  if (!selected.length) { e.preventDefault(); return; }
+  const codes = Array.from(selected).map(cb => cb.closest('.code-option').querySelector('code').textContent.trim());
+  const message = codes.length === 1
+    ? 'Enter draw with code:\n' + codes[0] + '\n\nYour code will be reserved until the draw ends.'
+    : 'Enter draw with ' + codes.length + ' codes:\n' + codes.join('\n') + '\n\nAll selected codes will be reserved until the draw ends.';
+  if (!confirm(message)) e.preventDefault();
 });
 </script>
 </body>
