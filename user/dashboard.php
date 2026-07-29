@@ -116,7 +116,7 @@ $pageTitle = 'Dashboard';
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <?php foreach ($draws as $draw): ?>
-        <a href="<?= APP_URL ?>/user/draw-detail.php?id=<?= $draw['id'] ?>" class="draw-card block fade-in">
+        <a href="<?= APP_URL ?>/user/enter-draw.php?id=<?= $draw['id'] ?>" class="draw-card block fade-in">
           <div class="draw-banner flex items-center justify-center text-4xl" style="background:linear-gradient(135deg,#1a2235,#0a0f1a)">
             <?php if ($draw['banner_image'] && file_exists(UPLOAD_PATH . $draw['banner_image'])): ?>
               <img src="<?= APP_URL ?>/uploads/<?= e($draw['banner_image']) ?>" alt="" class="w-full h-full object-cover">
@@ -126,6 +126,7 @@ $pageTitle = 'Dashboard';
             <div class="badge badge-success mb-2">● LIVE</div>
             <h3 class="font-bold text-base mb-2"><?= e($draw['title']) ?></h3>
             <div class="flex items-center gap-1" data-countdown="<?= e($draw['end_date']) ?>"></div>
+            <button onclick="window.location='<?= APP_URL ?>/user/enter-draw.php?id=<?= $draw['id'] ?>'" class="btn btn-sm bg-orange-400 hover:bg-orange-500 text-white mt-4 w-full">Enter Draw</button>
           </div>
         </a>
         <?php endforeach; ?>

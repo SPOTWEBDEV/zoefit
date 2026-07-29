@@ -10,7 +10,10 @@ $db = getDB();
 $drawId = (int)($_GET['id'] ?? 0);
 if (!$drawId) redirect(APP_URL . '/user/past-winners.php');
 
-// Only show completed draws to users
+// NOTE: we intentionally do NOT filter by d.status = 'completed' here anymore.
+// A draw that has ended but is awaiting admin winner-selection still needs to
+// render this page (participant list + "in progress" notice) instead of
+// producing a bool-vs-array fetch failure.
 $draw = $db->prepare(
     "SELECT d.*,
             dw.winning_code, dw.matched_digits, dw.tiebreaker_used,
@@ -20,24 +23,35 @@ $draw = $db->prepare(
      FROM draws d
      LEFT JOIN draw_winners dw ON dw.draw_id = d.id
      LEFT JOIN users u         ON u.id        = dw.user_id
-     WHERE d.id = ? AND d.status = 'completed'"
+     WHERE d.id = ?"
 );
 $draw->execute([$drawId]); $draw = $draw->fetch();
-// if (!$draw) redirect(APP_URL . '/user/past-winners.php');
+
+// Only a truly nonexistent draw ID should redirect away.
+if (!$draw) redirect(APP_URL . '/user/past-winners.php');
 
 $loggedInUserId = $_SESSION['user_id'] ?? null;
 $isLoggedIn     = (bool)$loggedInUserId;
 
-// ── Top 3 official rankings ────────────────────────────────
-$top3 = $db->prepare(
-    "SELECT dr.rank_position, dr.matched_digits, dr.entries_count, dr.tiebreaker,
-            u.full_name, u.phone, u.id AS uid
-     FROM draw_rankings dr
-     JOIN users u ON u.id = dr.user_id
-     WHERE dr.draw_id = ?
-     ORDER BY dr.rank_position ASC"
-);
-$top3->execute([$drawId]); $top3 = $top3->fetchAll();
+// ── Has the admin actually conducted the raffle and confirmed a winner? ────
+// This is the ONLY source of truth for "who won" — never inferred from
+// participant ranking, entry counts, or digit-match scoring.
+$hasOfficialWinner = !empty($draw['winner_uid']);
+$officialWinnerId  = $hasOfficialWinner ? (int)$draw['winner_uid'] : null;
+
+// ── Top 3 official rankings (only meaningful once the draw is conducted) ──
+$top3 = [];
+if ($hasOfficialWinner) {
+    $top3Stmt = $db->prepare(
+        "SELECT dr.rank_position, dr.matched_digits, dr.entries_count, dr.tiebreaker,
+                u.full_name, u.phone, u.id AS uid
+         FROM draw_rankings dr
+         JOIN users u ON u.id = dr.user_id
+         WHERE dr.draw_id = ?
+         ORDER BY dr.rank_position ASC"
+    );
+    $top3Stmt->execute([$drawId]); $top3 = $top3Stmt->fetchAll();
+}
 
 // ── ALL participants ranked by matched digits ──────────────
 // We score each user's BEST code against the winning code
@@ -54,7 +68,9 @@ $allParticipants = $db->prepare(
 $allParticipants->execute([$drawId]);
 $allParticipants = $allParticipants->fetchAll();
 
-// Score each participant — find their best code match
+// Score each participant — find their best code match.
+// NOTE: $winningCode only exists once the admin has entered it as part of
+// conducting the raffle, so this scoring naturally stays inert until then.
 $winningCode = $draw['winning_code'] ?? null;
 $scoredParticipants = [];
 
@@ -94,7 +110,11 @@ usort($scoredParticipants, function($a, $b) {
     return strtotime($a['first_entry'])           - strtotime($b['first_entry']);
 });
 
-// Find logged-in user's position
+// Find logged-in user's position.
+// IMPORTANT: this "position" is purely an informational leaderboard ranking
+// computed client-side from entries/digit matches. It must NEVER be treated
+// as equivalent to "this user won" — only $officialWinnerId (from the
+// admin-confirmed draw_winners row) determines that.
 $myPosition  = null;
 $myRow       = null;
 foreach ($scoredParticipants as $pos => $p) {
@@ -104,6 +124,10 @@ foreach ($scoredParticipants as $pos => $p) {
         break;
     }
 }
+
+// Is the logged-in user THE admin-confirmed winner? This is the only flag
+// allowed to trigger "You won" messaging anywhere on this page.
+$isDeclaredWinner = $isLoggedIn && $hasOfficialWinner && $officialWinnerId === (int)$loggedInUserId;
 
 $totalParticipants = count($scoredParticipants);
 $totalEntries      = array_sum(array_column($scoredParticipants, 'entry_count'));
@@ -125,6 +149,40 @@ function maskName(string $name, bool $isMe = false): string {
         if (mb_strlen($p) <= 1) return $p;
         return mb_substr($p,0,1) . str_repeat('*', min(mb_strlen($p)-1, 4));
     }, $parts));
+}
+
+function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningCode, ?int $loggedInUserId): void {
+    ?>
+    <tr class="<?= $isMe ? 'my-row' : '' ?>">
+      <td class="px-4 py-3">
+        <div class="pos-badge <?= $pos===1?'bg-yellow-500/20 text-yellow-400':($pos===2?'bg-gray-400/15 text-gray-300':($pos===3?'bg-orange-700/15 text-orange-400':'bg-white/5 text-gray-500')) ?>">
+          <?= $pos <= 3 ? ['🥇','🥈','🥉'][$pos-1] : number_format($pos) ?>
+        </div>
+      </td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          <div class="font-semibold text-sm <?= $isMe ? 'text-orange-400' : 'text-white' ?>">
+            <?= e($isMe ? $p['full_name'] : maskName($p['full_name'])) ?>
+          </div>
+          <?php if ($isMe): ?>
+          <span class="text-xs bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-full px-1.5 py-0.5 font-bold">You</span>
+          <?php endif; ?>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-right">
+        <?php if ($winningCode && $p['matched'] !== null): ?>
+        <span class="font-bold text-sm <?= $p['matched']>=10?'text-green-400':($p['matched']>=5?'text-yellow-400':'text-gray-500') ?>">
+          <?= $p['matched'] ?>/15
+        </span>
+        <?php else: ?>
+        <span class="text-gray-600 text-sm">—</span>
+        <?php endif; ?>
+      </td>
+      <td class="px-4 py-3 text-right text-sm text-gray-400">
+        <?= number_format($p['entry_count']) ?>
+      </td>
+    </tr>
+    <?php
 }
 ?><!DOCTYPE html>
 <html lang="en">
@@ -197,16 +255,18 @@ function maskName(string $name, bool $isMe = false): string {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <h1 class="font-black text-xl text-yellow-400"><?= e($draw['title']) ?></h1>
-            <span class="badge badge-muted text-xs">Completed</span>
+            <span class="badge <?= $hasOfficialWinner ? 'badge-muted' : 'badge-warning' ?> text-xs">
+              <?= $hasOfficialWinner ? 'Completed' : e(ucfirst($draw['status'] ?? 'Ended')) ?>
+            </span>
             <?php if ($draw['category']): ?>
             <span class="badge badge-info text-xs"><?= e($draw['category']) ?></span>
             <?php endif; ?>
           </div>
           <div class="text-xs text-gray-500 flex flex-wrap gap-4">
-            <span>📅 Ended <?= date('M j, Y g:i A', strtotime($draw['end_date'])) ?></span>
+            <span>📅 Ended <?= $draw['end_date'] ? date('M j, Y g:i A', strtotime($draw['end_date'])) : 'N/A' ?></span>
             <span>👥 <?= number_format($totalParticipants) ?> participants</span>
             <span>📝 <?= number_format($totalEntries) ?> total entries</span>
-            <?php if ($draw['announced_at']): ?>
+            <?php if ($hasOfficialWinner && $draw['announced_at']): ?>
             <span>🔒 Winner selected <?= date('M j, Y g:i A', strtotime($draw['announced_at'])) ?></span>
             <?php endif; ?>
           </div>
@@ -222,7 +282,7 @@ function maskName(string $name, bool $isMe = false): string {
     <div class="rounded-xl p-4 mb-5 flex items-center gap-4 flex-wrap"
          style="background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3)">
       <div class="text-3xl flex-shrink-0">
-        <?= $myPosition === 1 ? '🏆' : ($myPosition === 2 ? '🥈' : ($myPosition === 3 ? '🥉' : '📊')) ?>
+        <?= $isDeclaredWinner ? '🏆' : ($myPosition === 2 ? '🥈' : ($myPosition === 3 ? '🥉' : '📊')) ?>
       </div>
       <div class="flex-1 min-w-0">
         <div class="font-bold text-orange-400">
@@ -234,9 +294,12 @@ function maskName(string $name, bool $isMe = false): string {
           <?php if ($winningCode && $myRow['matched'] !== null): ?>
           · Your best code matched <strong class="text-<?= $myRow['matched']>=10?'green':'yellow' ?>-400"><?= $myRow['matched'] ?>/15</strong> digits
           <?php endif; ?>
+          <?php if (!$hasOfficialWinner): ?>
+          · <span class="text-gray-500">this ranking is unofficial until the admin conducts the draw</span>
+          <?php endif; ?>
         </div>
       </div>
-      <?php if ($myPosition === 1): ?>
+      <?php if ($isDeclaredWinner): ?>
       <div class="text-yellow-400 font-black text-sm">🎉 YOU WON!</div>
       <?php endif; ?>
     </div>
@@ -257,105 +320,121 @@ function maskName(string $name, bool $isMe = false): string {
     </div>
     <?php endif; ?>
 
-    <!-- ── WINNING CODE ────────────────────────────────────── -->
-    <?php if ($draw['winning_code']): ?>
-    <div class="card p-5 mb-5 text-center">
-      <div class="text-sm text-gray-400 font-semibold mb-3">🎲 Winning Number</div>
-      <div class="flex flex-wrap gap-1.5 justify-center mb-2">
-        <?php for ($i = 0; $i < 15; $i++): ?>
-        <div class="digit-slot winning"><?= $draw['winning_code'][$i] ?></div>
-        <?php endfor; ?>
-      </div>
-      <div class="text-xs text-gray-600">
-        Entered by admin from the physical draw machine
-      </div>
-    </div>
-    <?php endif; ?>
+    <!-- ── WINNER SECTION ──────────────────────────────────── -->
+    <?php if ($hasOfficialWinner): ?>
 
-    <!-- ── WINNER CARD ─────────────────────────────────────── -->
-    <?php if ($draw['winner_name']): ?>
-    <div class="card p-6 mb-5"
-         style="border-color:rgba(234,179,8,.4);background:linear-gradient(135deg,rgba(234,179,8,.07),rgba(0,0,0,0))">
-      <div class="flex items-center gap-3 mb-4">
-        <span class="text-3xl">🏆</span>
-        <h2 class="font-black text-xl text-yellow-400">Winner</h2>
-      </div>
-      <div class="flex items-center gap-4 flex-wrap">
-        <div class="w-14 h-14 bg-yellow-500/20 rounded-2xl flex items-center justify-center
-                    text-xl font-black text-yellow-400 flex-shrink-0">
-          <?= strtoupper(mb_substr($draw['winner_name'],0,1)) ?>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-bold text-yellow-400 text-lg"><?= $draw['winner_name'], (int)($draw['winner_uid']??0) === $loggedInUserId ?></div>
-          <div class="text-sm text-gray-400"><?= e(_maskPhone($draw['winner_phone'])) ?></div>
-          <?php if ($draw['tiebreaker_used']): ?>
-          <div class="text-xs text-orange-400 mt-0.5">via <?= e(str_replace('_',' ',$draw['tiebreaker_used'])) ?></div>
-          <?php endif; ?>
-        </div>
-        <div class="text-right flex-shrink-0">
-          <div class="text-2xl font-black text-yellow-400"><?= $draw['matched_digits'] ?>/15</div>
-          <div class="text-xs text-gray-500">digits matched</div>
-        </div>
-      </div>
-
-      <!-- Winner's code vs winning code (no code shown to users — just match count) -->
-      <?php if ($draw['winning_code'] && $draw['winner_code']): ?>
-      <div class="mt-4 pt-4 border-t border-white/5">
-        <div class="text-xs text-gray-500 mb-2">Winner's best code digit comparison:</div>
-        <div class="flex flex-wrap gap-1">
+      <!-- ── WINNING CODE ─────────────────────────────────── -->
+      <?php if ($draw['winning_code']): ?>
+      <div class="card p-5 mb-5 text-center">
+        <div class="text-sm text-gray-400 font-semibold mb-3">🎲 Winning Number</div>
+        <div class="flex flex-wrap gap-1.5 justify-center mb-2">
           <?php for ($i = 0; $i < 15; $i++): ?>
-          <div class="digit-slot <?= $draw['winner_code'][$i] === $draw['winning_code'][$i] ? 'match' : 'no-match' ?>">
-            <?= $draw['winner_code'][$i] ?>
-          </div>
+          <div class="digit-slot winning"><?= e($draw['winning_code'][$i]) ?></div>
           <?php endfor; ?>
         </div>
-        <div class="text-xs text-gray-600 mt-1">🟢 position matched &nbsp; 🔴 no match</div>
+        <div class="text-xs text-gray-600">
+          Entered by admin from the physical draw machine
+        </div>
       </div>
       <?php endif; ?>
-    </div>
-    <?php endif; ?>
 
-    <!-- ── TOP 3 PODIUM ────────────────────────────────────── -->
-    <?php if ($top3): ?>
-    <div class="mb-5">
-      <h2 class="font-bold text-base mb-3 flex items-center gap-2">🏅 Top 3 Finishers</h2>
-      <div class="grid grid-cols-3 gap-3">
-        <?php
-        $podiumMeta = [
-          1 => ['🥇','podium-1','text-yellow-400'],
-          2 => ['🥈','podium-2','text-gray-300'],
-          3 => ['🥉','podium-3','text-orange-300'],
-        ];
-        // Desktop order: 2-1-3
-        $ordered = [];
-        foreach ([2,1,3] as $pos) {
-            foreach ($top3 as $r) {
-                if ($r['rank_position'] === $pos) { $ordered[] = $r; break; }
-            }
-        }
-        foreach ($ordered as $r):
-            $pm    = $podiumMeta[$r['rank_position']] ?? $podiumMeta[3];
-            $isMe  = $isLoggedIn && (int)$r['uid'] === (int)$loggedInUserId;
-        ?>
-        <div class="<?= $pm[1] ?> rounded-2xl p-4 text-center
-                    <?= $r['rank_position']===1?'sm:order-2':($r['rank_position']===2?'sm:order-1':'sm:order-3') ?>
-                    <?= $isMe?'ring-2 ring-orange-500':'' ?>">
-          <?php if ($isMe): ?><div class="text-xs text-orange-400 font-bold mb-1">← You</div><?php endif; ?>
-          <div class="text-3xl mb-2"><?= $pm[0] ?></div>
-          <div class="font-bold <?= $pm[2] ?> text-sm mb-0.5">
-            <?= $r['full_name'] ?>
-          </div>
-          <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold mt-1"
-               style="background:rgba(255,255,255,.06)">
-            <span class="<?= $r['matched_digits']>=10?'text-green-400':($r['matched_digits']>=5?'text-yellow-400':'text-gray-400') ?>">
-              <?= $r['matched_digits'] ?>/15
-            </span>
-          </div>
-          <div class="text-xs text-gray-600 mt-1"><?= $r['entries_count'] ?> entries</div>
+      <!-- ── WINNER CARD ──────────────────────────────────── -->
+      <div class="card p-6 mb-5"
+           style="border-color:rgba(234,179,8,.4);background:linear-gradient(135deg,rgba(234,179,8,.07),rgba(0,0,0,0))">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="text-3xl">🏆</span>
+          <h2 class="font-black text-xl text-yellow-400">Winner</h2>
         </div>
-        <?php endforeach; ?>
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="w-14 h-14 bg-yellow-500/20 rounded-2xl flex items-center justify-center
+                      text-xl font-black text-yellow-400 flex-shrink-0">
+            <?= strtoupper(mb_substr($draw['winner_name'],0,1)) ?>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-yellow-400 text-lg"><?= e($draw['winner_name']) ?></div>
+            <div class="text-sm text-gray-400"><?= e(_maskPhone($draw['winner_phone'])) ?></div>
+            <?php if ($draw['tiebreaker_used']): ?>
+            <div class="text-xs text-orange-400 mt-0.5">via <?= e(str_replace('_',' ',$draw['tiebreaker_used'])) ?></div>
+            <?php endif; ?>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-2xl font-black text-yellow-400"><?= $draw['matched_digits'] ?>/15</div>
+            <div class="text-xs text-gray-500">digits matched</div>
+          </div>
+        </div>
+
+        <!-- Winner's code vs winning code (no code shown to users — just match count) -->
+        <?php if ($draw['winning_code'] && $draw['winner_code']): ?>
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <div class="text-xs text-gray-500 mb-2">Winner's best code digit comparison:</div>
+          <div class="flex flex-wrap gap-1">
+            <?php for ($i = 0; $i < 15; $i++): ?>
+            <div class="digit-slot <?= $draw['winner_code'][$i] === $draw['winning_code'][$i] ? 'match' : 'no-match' ?>">
+              <?= e($draw['winner_code'][$i]) ?>
+            </div>
+            <?php endfor; ?>
+          </div>
+          <div class="text-xs text-gray-600 mt-1">🟢 position matched &nbsp; 🔴 no match</div>
+        </div>
+        <?php endif; ?>
       </div>
-    </div>
+
+      <!-- ── TOP 3 PODIUM ─────────────────────────────────── -->
+      <?php if ($top3): ?>
+      <div class="mb-5">
+        <h2 class="font-bold text-base mb-3 flex items-center gap-2">🏅 Top 3 Finishers</h2>
+        <div class="grid grid-cols-3 gap-3">
+          <?php
+          $podiumMeta = [
+            1 => ['🥇','podium-1','text-yellow-400'],
+            2 => ['🥈','podium-2','text-gray-300'],
+            3 => ['🥉','podium-3','text-orange-300'],
+          ];
+          // Desktop order: 2-1-3
+          $ordered = [];
+          foreach ([2,1,3] as $pos) {
+              foreach ($top3 as $r) {
+                  if ($r['rank_position'] === $pos) { $ordered[] = $r; break; }
+              }
+          }
+          foreach ($ordered as $r):
+              $pm    = $podiumMeta[$r['rank_position']] ?? $podiumMeta[3];
+              $isMe  = $isLoggedIn && (int)$r['uid'] === (int)$loggedInUserId;
+          ?>
+          <div class="<?= $pm[1] ?> rounded-2xl p-4 text-center
+                      <?= $r['rank_position']===1?'sm:order-2':($r['rank_position']===2?'sm:order-1':'sm:order-3') ?>
+                      <?= $isMe?'ring-2 ring-orange-500':'' ?>">
+            <?php if ($isMe): ?><div class="text-xs text-orange-400 font-bold mb-1">← You</div><?php endif; ?>
+            <div class="text-3xl mb-2"><?= $pm[0] ?></div>
+            <div class="font-bold <?= $pm[2] ?> text-sm mb-0.5">
+              <?= e($r['full_name']) ?>
+            </div>
+            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold mt-1"
+                 style="background:rgba(255,255,255,.06)">
+              <span class="<?= $r['matched_digits']>=10?'text-green-400':($r['matched_digits']>=5?'text-yellow-400':'text-gray-400') ?>">
+                <?= $r['matched_digits'] ?>/15
+              </span>
+            </div>
+            <div class="text-xs text-gray-600 mt-1"><?= $r['entries_count'] ?> entries</div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <?php endif; ?>
+
+    <?php else: ?>
+
+      <!-- ── WINNER SELECTION IN PROGRESS ─────────────────── -->
+      <div class="card p-6 mb-5 text-center"
+           style="border-color:rgba(107,114,128,.3);background:rgba(107,114,128,.05)">
+        <div class="text-4xl mb-3">🕒</div>
+        <div class="font-bold text-lg text-gray-300 mb-1">Winner Selection In Progress</div>
+        <div class="text-sm text-gray-500 max-w-md mx-auto">
+          This draw has ended and entries are locked. Our admin will conduct the
+          live draw shortly, and the winner will appear here once it's officially confirmed.
+        </div>
+      </div>
+
     <?php endif; ?>
 
     <!-- ── ALL PARTICIPANTS TABLE ──────────────────────────── -->
@@ -364,7 +443,12 @@ function maskName(string $name, bool $isMe = false): string {
         <div>
           <h3 class="font-bold text-sm">📋 All Participants</h3>
           <div class="text-xs text-gray-500 mt-0.5">
-            <?= number_format($totalParticipants) ?> participants · sorted by digit match score
+            <?= number_format($totalParticipants) ?> participants
+            <?php if ($hasOfficialWinner): ?>
+            · sorted by digit match score
+            <?php else: ?>
+            · order will be finalized once the winning number is drawn
+            <?php endif; ?>
             <?php if ($isLoggedIn && $myPosition): ?>
             · <span class="text-orange-400">Your row is highlighted</span>
             <?php endif; ?>
@@ -376,10 +460,10 @@ function maskName(string $name, bool $isMe = false): string {
       </div>
 
       <!-- MY ROW pinned at top when not on page 1 -->
-      <?php if ($isLoggedIn && $myPosition && $tpage > 1 && $myPosition > ($tpage-1)*$tper+$tper): ?>
+      <?php if ($isLoggedIn && $myPosition && $tpage > 1 && $myPosition <= ($tpage-1)*$tper): ?>
       <div class="px-4 py-2 text-xs text-orange-400 font-semibold"
            style="background:rgba(249,115,22,.06);border-bottom:1px solid rgba(249,115,22,.1)">
-        📌 Your position (#<?= $myPosition ?>) is pinned here — scroll down to find it in the full list
+        📌 Your position (#<?= $myPosition ?>) is above — showing it here for reference
       </div>
       <table class="w-full">
         <tbody>
@@ -403,40 +487,8 @@ function maskName(string $name, bool $isMe = false): string {
             <?php foreach ($tableRows as $rowIdx => $p):
               $globalPos = $toffset + $rowIdx + 1;
               $isMe      = $isLoggedIn && (int)$p['uid'] === (int)$loggedInUserId;
-            ?>
-            <tr class="<?= $isMe ? 'my-row' : 'hover:bg-white/2' ?> transition-colors">
-              <td class="px-4 py-3">
-                <div class="pos-badge <?= $globalPos===1?'bg-yellow-500/20 text-yellow-400':($globalPos===2?'bg-gray-400/15 text-gray-300':($globalPos===3?'bg-orange-700/15 text-orange-400':'bg-white/5 text-gray-500')) ?>">
-                  <?= $globalPos <= 3 ? ['🥇','🥈','🥉'][$globalPos-1] : number_format($globalPos) ?>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <div class="font-semibold text-sm <?= $isMe?'text-orange-400':'text-white' ?>">
-                    <?= $p['full_name'] ?>
-                  </div>
-                  <?php if ($isMe): ?>
-                  <span class="text-xs bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-full px-1.5 py-0.5 font-bold">You</span>
-                  <?php endif; ?>
-                  <?php if ($globalPos === 1): ?>
-                  <span class="text-xs text-yellow-400">🏆</span>
-                  <?php endif; ?>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <?php if ($winningCode && $p['matched'] !== null): ?>
-                <span class="font-bold text-sm <?= $p['matched']>=10?'text-green-400':($p['matched']>=5?'text-yellow-400':'text-gray-500') ?>">
-                  <?= $p['matched'] ?>/15
-                </span>
-                <?php else: ?>
-                <span class="text-gray-600 text-sm">—</span>
-                <?php endif; ?>
-              </td>
-              <td class="px-4 py-3 text-right text-sm text-gray-400">
-                <?= number_format($p['entry_count']) ?>
-              </td>
-            </tr>
-            <?php endforeach; ?>
+              _renderParticipantRow($p, $globalPos, $isMe, $winningCode, $loggedInUserId);
+            endforeach; ?>
           </tbody>
         </table>
       </div>

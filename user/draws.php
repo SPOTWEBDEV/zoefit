@@ -5,12 +5,13 @@ $auth = requireUser(); $userId = $auth['id'];
 $currentPage = 'draws'; $pageTitle = 'Draws & Rewards';
 $db = getDB();
 $filter = $_GET['status'] ?? 'active';
-$allowed = ['active','pending','completed'];
+$allowed = ['active','pending','completed' , 'ended'];
 if (!in_array($filter,$allowed)) $filter='active';
 
 $draws = $db->prepare("SELECT d.*, (SELECT COUNT(*) FROM draw_entries WHERE draw_id=d.id AND user_id=?) as my_entries FROM draws d WHERE d.status=? ORDER BY d.end_date ASC");
 $draws->execute([$userId, $filter]);
 $draws = $draws->fetchAll();
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,7 +33,7 @@ $draws = $draws->fetchAll();
   <div class="p-6">
     <!-- Tabs -->
     <div class="flex gap-2 mb-6">
-      <?php foreach(['active'=>'🔴 Live','pending'=>'⏳ Upcoming','completed'=>'✅ Completed'] as $s=>$l): ?>
+      <?php foreach(['active'=>'🔴 Live','pending'=>'⏳ Upcoming','completed'=>'✅ Completed' , 'ended'=>'❌ Ended'] as $s=>$l): ?>
       <a href="?status=<?= $s ?>" class="btn btn-sm <?= $filter===$s?'btn-primary':'btn-secondary' ?>"><?= $l ?></a>
       <?php endforeach; ?>
     </div>
@@ -63,7 +64,7 @@ $draws = $draws->fetchAll();
           <?php endif; ?>
           <?php if($d['status']==='active'): ?>
           <a href="<?= APP_URL ?>/user/enter-draw.php?id=<?= $d['id'] ?>" class="btn btn-primary w-full text-sm">Enter Draw →</a>
-          <?php elseif($d['status']==='completed' && $d['winner_user_id']): ?>
+          <?php elseif($d['status']==='completed' && $d['winner_user_id']  || $d['status']==='ended') : ?>
           <a href="<?= APP_URL ?>/user/draw-detail.php?id=<?= $d['id'] ?>" class="btn btn-secondary w-full text-sm">View Results</a>
           <?php else: ?>
           <button class="btn btn-secondary w-full text-sm" disabled>Not Yet Active</button>
