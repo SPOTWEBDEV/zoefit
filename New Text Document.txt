@@ -1,2 +1,2 @@
-1: on the Redeem Code page , there are suppose to credit the referal 
-2: on the draw-detail.php , the Top 3 Finishers and the table will not be check throught the draw ranking , because the previous draw ranking if show user that is not involve in the draw as the second place or third place. so the code that was used to select the winner , will br used in those page to select the winner and arrange user on the table base on the winner code
+1: on the user Redeem Code page , there are suppose to credit the referal 
+2: on the draw-detail.php , the Top 3 Finishers and the table will not be check throught the draw ranking , because the previous draw ranking if show user that is not involve in the draw as the second place or third place. so the code that was used to select the winner , will be used in those page to select the winner and arrange user on the table base on the winner code

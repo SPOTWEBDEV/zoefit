@@ -79,6 +79,12 @@ async function redeemCode() {
     Modal.open('success-modal');
     document.getElementById('code-input').value = '';
     updateCodeDisplay();
+
+    // Referral reward check: if this is the referred user's redemption
+    // that unlocks their referrer's free code, this grants it and logs it
+    // to audit_logs. No-op if not applicable — never blocks the redeem
+    // flow above, so its result/errors are intentionally ignored here.
+    ZF.post('<?= APP_URL ?>/ajax/referral-credit.php', {}).catch(() => {});
   } catch (e) {
     Toast.error(e.message || 'Redemption failed');
   } finally {

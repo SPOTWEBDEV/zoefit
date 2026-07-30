@@ -1,8 +1,22 @@
 <?php
 // admin/winners.php
 // Admin view of all draw results — shows full names, phone numbers AND codes.
+//
+// CHANGE LOG (this revision):
+//  - "Top 3 — Full Details" and "All Participants" no longer read from the
+//    draw_rankings table (a frozen snapshot written once at confirm-time —
+//    it can drift from reality, and in the old buggy version even stored a
+//    bad user_id for some historical draws). Both sections now come from
+//    includes/draw-scoring.php::getDrawParticipantRanking(), scored live
+//    against draws.winning_code ("the code that was used to select the
+//    winner") — the SAME function user/draw-detail.php uses, so this page
+//    and the public result page can never show a different #2/#3.
+//  - The old "Sample Code" column (an arbitrary MAX(code) with no relation
+//    to the winning number) is replaced with "Best Code" — each
+//    participant's actual best-matching code — plus a new "Matched" column.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/draw-scoring.php';
 $auth = requireAdmin(); $adminId = $auth['id'];
 $db   = getDB();
 
@@ -30,31 +44,13 @@ if ($drawId) {
 
     if (!$draw) redirect(APP_URL . '/admin/winners.php');
 
-    // Full top 3 with codes (admin sees everything)
-    $rankings = $db->prepare(
-        "SELECT dr.*, u.full_name, u.phone, u.email, u.id AS uid
-         FROM draw_rankings dr
-         JOIN users u ON u.id = dr.user_id
-         WHERE dr.draw_id = ?
-         ORDER BY dr.rank_position ASC"
-    );
-    $rankings->execute([$drawId]);
-    $rankings = $rankings->fetchAll();
-
-    // All participants with entry count + their best scoring code
-    $participants = $db->prepare(
-        "SELECT u.id AS uid, u.full_name, u.phone, u.email,
-                COUNT(de.id) AS entry_count,
-                MAX(c.code) AS sample_code
-         FROM draw_entries de
-         JOIN users u ON u.id = de.user_id
-         JOIN codes c ON c.id = de.code_id
-         WHERE de.draw_id = ?
-         GROUP BY de.user_id
-         ORDER BY entry_count DESC"
-    );
-    $participants->execute([$drawId]);
-    $participants = $participants->fetchAll();
+    // Single live ranking, scored directly against the winning code, feeds
+    // BOTH the Top 3 section and the full participant table below — one
+    // source of truth, so they can never disagree with each other or with
+    // what user/draw-detail.php shows.
+    $fullRanking  = getDrawParticipantRanking($db, $drawId, $draw['winning_code'] ?? null);
+    $rankings     = array_slice($fullRanking, 0, 3);
+    $participants = $fullRanking;
 
     $pageMode = 'single';
 } else {
@@ -254,7 +250,8 @@ $aPage = 'winners';
     </div>
     <?php endif; ?>
 
-    <!-- Top 3 podium — admin sees codes -->
+    <!-- Top 3 podium — admin sees codes. $rankings = first 3 rows of the
+         SAME live ranking the participant table below renders. -->
     <?php if ($rankings): ?>
     <div class="card mb-5">
       <div class="px-5 pt-5 pb-3 border-b border-white/5 font-bold flex items-center gap-2">
@@ -264,30 +261,31 @@ $aPage = 'winners';
       <div class="divide-y divide-white/5">
         <?php
         $rankIcons = [1 => '🥇', 2 => '🥈', 3 => '🥉'];
-        foreach ($rankings as $r):
+        foreach ($rankings as $idx => $r):
+            $rankPos = $idx + 1;
         ?>
         <div class="p-5">
           <div class="flex items-start gap-3 flex-wrap mb-3">
-            <div class="text-2xl flex-shrink-0"><?= $rankIcons[$r['rank_position']] ?? '#'.$r['rank_position'] ?></div>
+            <div class="text-2xl flex-shrink-0"><?= $rankIcons[$rankPos] ?? '#'.$rankPos ?></div>
             <div class="flex-1 min-w-0">
               <div class="font-bold text-sm"><?= e($r['full_name']) ?></div>
               <div class="text-xs text-gray-400"><?= e(formatPhone($r['phone'])) ?> · User #<?= $r['uid'] ?></div>
             </div>
             <div class="text-right flex-shrink-0">
-              <div class="font-black text-base <?= $r['matched_digits']>=10?'text-green-400':($r['matched_digits']>=5?'text-yellow-400':'text-gray-400') ?>">
-                <?= $r['matched_digits'] ?>/15
+              <div class="font-black text-base <?= $r['matched']>=10?'text-green-400':($r['matched']>=5?'text-yellow-400':'text-gray-400') ?>">
+                <?= $r['matched'] ?>/15
               </div>
-              <div class="text-xs text-gray-600"><?= $r['entries_count'] ?> entries</div>
+              <div class="text-xs text-gray-600"><?= $r['entry_count'] ?> entries</div>
             </div>
           </div>
           <!-- Code comparison — admin only -->
-          <?php if ($draw['winning_code'] && $r['user_code']): ?>
+          <?php if ($draw['winning_code'] && $r['best_code']): ?>
           <div class="grid md:grid-cols-2 gap-3 mt-2">
             <div>
               <div class="text-xs text-gray-600 mb-1">Winning code</div>
               <div class="flex flex-wrap gap-0.5">
                 <?php for ($i=0;$i<15;$i++): ?>
-                <div class="digit-slot <?= $r['user_code'][$i]===$draw['winning_code'][$i]?'match':'no-match' ?>" style="width:24px;height:30px;font-size:13px">
+                <div class="digit-slot <?= $r['best_code'][$i]===$draw['winning_code'][$i]?'match':'no-match' ?>" style="width:24px;height:30px;font-size:13px">
                   <?= $draw['winning_code'][$i] ?>
                 </div>
                 <?php endfor; ?>
@@ -297,16 +295,16 @@ $aPage = 'winners';
               <div class="text-xs text-gray-600 mb-1">Their code</div>
               <div class="flex flex-wrap gap-0.5">
                 <?php for ($i=0;$i<15;$i++): ?>
-                <div class="digit-slot <?= $r['user_code'][$i]===$draw['winning_code'][$i]?'match':'no-match' ?>" style="width:24px;height:30px;font-size:13px">
-                  <?= $r['user_code'][$i] ?>
+                <div class="digit-slot <?= $r['best_code'][$i]===$draw['winning_code'][$i]?'match':'no-match' ?>" style="width:24px;height:30px;font-size:13px">
+                  <?= $r['best_code'][$i] ?>
                 </div>
                 <?php endfor; ?>
               </div>
             </div>
           </div>
           <?php endif; ?>
-          <?php if ($r['tiebreaker']): ?>
-          <div class="text-xs text-orange-400 mt-2">Tiebreaker: <?= e(str_replace('_',' ',$r['tiebreaker'])) ?></div>
+          <?php if ($rankPos === 1 && $draw['tiebreaker_used']): ?>
+          <div class="text-xs text-orange-400 mt-2">Tiebreaker: <?= e(str_replace('_',' ',$draw['tiebreaker_used'])) ?></div>
           <?php endif; ?>
         </div>
         <?php endforeach; ?>
@@ -314,7 +312,9 @@ $aPage = 'winners';
     </div>
     <?php endif; ?>
 
-    <!-- Full participant table — admin sees all codes -->
+    <!-- Full participant table — admin sees all codes, sorted by digit
+         match score (same live ranking as Top 3 above and the same order
+         user/draw-detail.php shows). -->
     <?php if ($participants): ?>
     <div class="card">
       <div class="px-5 pt-5 pb-3 border-b border-white/5 flex items-center justify-between">
@@ -328,8 +328,9 @@ $aPage = 'winners';
               <th style="width:40px">#</th>
               <th>Name</th>
               <th>Phone</th>
+              <th>Matched</th>
               <th>Entries</th>
-              <th>Sample Code</th>
+              <th>Best Code</th>
             </tr>
           </thead>
           <tbody>
@@ -344,10 +345,17 @@ $aPage = 'winners';
               </td>
               <td class="font-mono text-sm text-gray-400"><?= e(formatPhone($p['phone'])) ?></td>
               <td>
+                <?php if ($draw['winning_code']): ?>
+                <span class="font-bold <?= $p['matched']>=10?'text-green-400':($p['matched']>=5?'text-yellow-400':'text-gray-400') ?>">
+                  <?= $p['matched'] ?>/15
+                </span>
+                <?php else: ?><span class="text-gray-600">—</span><?php endif; ?>
+              </td>
+              <td>
                 <span class="font-bold text-orange-400"><?= $p['entry_count'] ?></span>
               </td>
               <td>
-                <code class="text-xs text-gray-400"><?= e($p['sample_code']) ?></code>
+                <code class="text-xs text-gray-400"><?= e($p['best_code']) ?></code>
               </td>
             </tr>
             <?php endforeach; ?>

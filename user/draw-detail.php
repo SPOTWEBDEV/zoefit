@@ -4,16 +4,27 @@
 // logged-in user's row is highlighted and pinned at top.
 //
 // CHANGE LOG (this revision):
-//  - Participant ranking now comes from includes/draw-scoring.php::
-//    getDrawParticipantRanking(), the SAME function admin/select-winner.php
-//    uses. Positions here will always match what the admin saw live.
-//  - Gold/silver/bronze medal badges (🥇🥈🥉) and their highlight colors are
-//    now ONLY shown once the admin has officially confirmed a winner
-//    ($hasOfficialWinner). Before that, the "ranking" is just an unofficial
-//    entry-count-based ordering and is shown with plain numbers so it can't
-//    be mistaken for the real 1st/2nd/3rd place.
-//  - Added a "Share / Download" button that screenshots the result card
-//    with phone numbers masked, for posting on social media.
+//  - Top 3 Finishers is NO LONGER read from the draw_rankings table (a
+//    frozen snapshot written once, at confirm-time, by admin/select-winner.php).
+//    That table could drift from reality (e.g. it can only ever show 3 rows,
+//    and in the old buggy version even stored a bad user_id). Top 3 is now
+//    simply the first 3 entries of $scoredParticipants — the EXACT SAME
+//    array the "All Participants" table renders — so the two can never
+//    disagree about who's #1/#2/#3 again.
+//  - $scoredParticipants comes from includes/draw-scoring.php::
+//    getDrawParticipantRanking(), scored directly against draws.winning_code
+//    ("the code that was used to select the winner"), the SAME function
+//    admin/select-winner.php and admin/winners.php use.
+//  - Top 3 boxes render in strict rank order (box 1 = 1st place, box 2 =
+//    2nd place, box 3 = 3rd place).
+//  - All Participants rows always show a numeric "#N" position; the medal
+//    emoji (only once official) is shown ALONGSIDE the number, not instead
+//    of it.
+//  - Share/Download screenshot: #share-capture now has its own padding
+//    (previously it only inherited spacing from its parent, which
+//    html2canvas never captures, so exports looked cropped flush against
+//    the edges) and a fix for html2canvas silently dropping CSS
+//    flexbox/grid `gap`.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/draw-scoring.php';
@@ -52,27 +63,15 @@ $isLoggedIn     = (bool)$loggedInUserId;
 $hasOfficialWinner = !empty($draw['winner_uid']);
 $officialWinnerId  = $hasOfficialWinner ? (int)$draw['winner_uid'] : null;
 
-// ── Top 3 official rankings (only meaningful once the draw is conducted) ──
-$top3 = [];
-if ($hasOfficialWinner) {
-    $top3Stmt = $db->prepare(
-        "SELECT dr.rank_position, dr.matched_digits, dr.entries_count, dr.tiebreaker,
-                u.full_name, u.phone, u.id AS uid
-         FROM draw_rankings dr
-         JOIN users u ON u.id = dr.user_id
-         WHERE dr.draw_id = ?
-         ORDER BY dr.rank_position ASC"
-    );
-    $top3Stmt->execute([$drawId]); $top3 = $top3Stmt->fetchAll();
-}
-
-// ── ALL participants ranked ─────────────────────────────────
-// Uses the SAME scoring function as admin/select-winner.php so the position
-// numbers here are guaranteed to match what the admin saw while drawing.
-// $winningCode is null until the admin has entered it, so scoring naturally
-// stays inert (everyone scores 0 matches) until then.
+// ── ALL participants ranked, scored directly against the winning code ─────
+// This single computation feeds BOTH the "Top 3 Finishers" boxes and the
+// "All Participants" table below — they can never show different people
+// in different orders because they're reading the exact same array.
 $winningCode = $draw['winning_code'] ?? null;
 $scoredParticipants = getDrawParticipantRanking($db, $drawId, $winningCode);
+
+// Top 3 = first 3 rows of that same ranking (only meaningful once official).
+$top3 = $hasOfficialWinner ? array_slice($scoredParticipants, 0, 3) : [];
 
 // Find logged-in user's position.
 // IMPORTANT: this "position" is purely an informational leaderboard ranking
@@ -115,8 +114,10 @@ function maskName(string $name, bool $isMe = false): string {
     }, $parts));
 }
 
-// $hasOfficialWinner is threaded through so medal emoji/colors only ever
-// appear once the admin has actually confirmed a winner (correction #2).
+// $hasOfficialWinner is threaded through so medal emoji only ever appears
+// once the admin has actually confirmed a winner. The position NUMBER is
+// always shown — the medal is an extra decoration next to it, never a
+// replacement for it.
 function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningCode, bool $hasOfficialWinner): void {
     $showMedal = $hasOfficialWinner && $pos <= 3;
     $badgeClass = $showMedal
@@ -126,13 +127,14 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
     <tr class="<?= $isMe ? 'my-row' : '' ?>">
       <td class="px-4 py-3">
         <div class="pos-badge <?= $badgeClass ?>">
-          <?= $showMedal ? ['🥇','🥈','🥉'][$pos-1] : number_format($pos) ?>
+          <?php if ($showMedal): ?><span class="pos-badge-medal"><?= ['🥇','🥈','🥉'][$pos-1] ?></span><?php endif; ?>
+          <span>#<?= number_format($pos) ?></span>
         </div>
       </td>
       <td class="px-4 py-3">
         <div class="flex items-center gap-2">
           <div class="font-semibold text-sm <?= $isMe ? 'text-orange-400' : 'text-white' ?>">
-            <?= e($isMe ? $p['full_name'] : maskName($p['full_name'])) ?>
+            <?= e($p['full_name']) ?>
           </div>
           <?php if ($isMe): ?>
           <span class="text-xs bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-full px-1.5 py-0.5 font-bold">You</span>
@@ -168,9 +170,20 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
     code { font-family: 'Courier New', monospace !important; }
 
     /* Digit comparison slots */
+    /* NOTE on centering: this uses line-height = height instead of flexbox
+       align-items to vertically center the digit. html2canvas (used by the
+       Share/Download button below) does not reliably center a raw text
+       node inside a `display:flex; align-items:center` box — the text
+       renders low, near the bottom of the box, in the exported image even
+       though it looks perfectly centered in the live browser. Line-height
+       centering is plain text layout (no flexbox involved), so it exports
+       correctly. This is a general fix: the same swap should be applied to
+       any other small fixed-height box that centers a single line of text
+       and needs to survive a screenshot export. */
     .digit-slot {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 28px; height: 34px; border-radius: 6px;
+      display: inline-block;
+      width: 28px; height: 34px; line-height: 34px;
+      border-radius: 6px; text-align: center; vertical-align: top;
       font-size: 15px; font-weight: 900;
       font-family: 'Courier New', monospace;
       border: 1.5px solid rgba(255,255,255,.08);
@@ -190,11 +203,25 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
     .my-row td { border-top: 1px solid rgba(249,115,22,.2) !important; border-bottom: 1px solid rgba(249,115,22,.2) !important; }
     .my-row td:first-child { border-left: 3px solid #f97316; }
 
-    /* Position badge */
+    /* Position badge — pill shape so it can hold "#N" alone or "🥇 #N" */
     .pos-badge {
-      width: 32px; height: 32px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .72rem; font-weight: 900; flex-shrink: 0;
+      min-width: 32px; height: 26px;
+      padding: 0 8px;
+      border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+      font-size: .7rem; font-weight: 900; flex-shrink: 0; white-space: nowrap;
+    }
+    .pos-badge-medal { font-size: .85rem; line-height: 1; }
+
+    /* ── Share-capture container ─────────────────────────────
+       Its own padding so the exported screenshot has breathing room —
+       previously this div had none and only inherited spacing from its
+       parent, which html2canvas never sees, making the export look
+       cropped flush against the edges. */
+    #share-capture {
+      padding: 20px;
+      background: #0a0f1a;
+      border-radius: 16px;
     }
   </style>
 </head>
@@ -364,42 +391,39 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
       </div>
 
       <!-- ── TOP 3 PODIUM ─────────────────────────────────── -->
+      <!-- $top3 = array_slice($scoredParticipants, 0, 3) — the EXACT SAME
+           array the "All Participants" table below renders. Box 1 = 1st
+           place, box 2 = 2nd place, box 3 = 3rd place, always in that
+           strict rank order. -->
       <?php if ($top3): ?>
       <div class="mb-5">
         <h2 class="font-bold text-base mb-3 flex items-center gap-2">🏅 Top 3 Finishers</h2>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid gap-3" style="grid-template-columns: repeat(<?= max(count($top3),1) ?>, minmax(0,1fr));">
           <?php
           $podiumMeta = [
             1 => ['🥇','podium-1','text-yellow-400'],
             2 => ['🥈','podium-2','text-gray-300'],
             3 => ['🥉','podium-3','text-orange-300'],
           ];
-          // Desktop order: 2-1-3
-          $ordered = [];
-          foreach ([2,1,3] as $pos) {
-              foreach ($top3 as $r) {
-                  if ($r['rank_position'] === $pos) { $ordered[] = $r; break; }
-              }
-          }
-          foreach ($ordered as $r):
-              $pm    = $podiumMeta[$r['rank_position']] ?? $podiumMeta[3];
+          foreach ($top3 as $idx => $r):
+              $rankPos = $idx + 1;
+              $pm    = $podiumMeta[$rankPos] ?? $podiumMeta[3];
               $isMe  = $isLoggedIn && (int)$r['uid'] === (int)$loggedInUserId;
           ?>
-          <div class="<?= $pm[1] ?> rounded-2xl p-4 text-center
-                      <?= $r['rank_position']===1?'sm:order-2':($r['rank_position']===2?'sm:order-1':'sm:order-3') ?>
-                      <?= $isMe?'ring-2 ring-orange-500':'' ?>">
+          <div class="<?= $pm[1] ?> rounded-2xl p-4 text-center <?= $isMe?'ring-2 ring-orange-500':'' ?>">
             <?php if ($isMe): ?><div class="text-xs text-orange-400 font-bold mb-1">← You</div><?php endif; ?>
+            <div class="text-xs text-gray-500 font-bold mb-1">#<?= $rankPos ?> PLACE</div>
             <div class="text-3xl mb-2"><?= $pm[0] ?></div>
             <div class="font-bold <?= $pm[2] ?> text-sm mb-0.5">
               <?= e($r['full_name']) ?>
             </div>
             <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold mt-1"
                  style="background:rgba(255,255,255,.06)">
-              <span class="<?= $r['matched_digits']>=10?'text-green-400':($r['matched_digits']>=5?'text-yellow-400':'text-gray-400') ?>">
-                <?= $r['matched_digits'] ?>/15
+              <span class="<?= $r['matched']>=10?'text-green-400':($r['matched']>=5?'text-yellow-400':'text-gray-400') ?>">
+                <?= $r['matched'] ?>/15
               </span>
             </div>
-            <div class="text-xs text-gray-600 mt-1"><?= $r['entries_count'] ?> entries</div>
+            <div class="text-xs text-gray-600 mt-1"><?= $r['entry_count'] ?> entries</div>
           </div>
           <?php endforeach; ?>
         </div>
@@ -526,15 +550,83 @@ document.addEventListener('DOMContentLoaded', function () {
 // ── Share / Download screenshot ─────────────────────────────
 // Phone numbers on this page are already masked server-side
 // (maskPhoneDigits) wherever they're shown, so no extra client-side
-// masking is required before capture — this just downloads the card
-// as an image the user can post on social media.
+// masking is required before capture.
+//
+// html2canvas does not support CSS flexbox/grid `gap` — it silently
+// renders those containers with zero spacing between children, which is
+// why digit boxes/badges looked cramped in exported images even though
+// #share-capture now has its own padding. This walks the CLONED document
+// html2canvas builds for rendering (never the live page) and converts any
+// gap-based flex/grid container into margin-based spacing instead.
+function fixGapForCapture(clonedDoc) {
+  const view = clonedDoc.defaultView || window;
+  const all = clonedDoc.body ? clonedDoc.body.querySelectorAll('*') : [];
+  all.forEach(function (el) {
+    const cs = view.getComputedStyle(el);
+    const display = cs.display;
+    if (display !== 'flex' && display !== 'inline-flex' && display !== 'grid' && display !== 'inline-grid') return;
+
+    const rowGap = parseFloat(cs.rowGap) || 0;
+    const colGap = parseFloat(cs.columnGap) || 0;
+    if (rowGap <= 0 && colGap <= 0) return;
+
+    el.style.gap = '0px';
+    el.style.rowGap = '0px';
+    el.style.columnGap = '0px';
+
+    Array.from(el.children).forEach(function (child, idx, arr) {
+      if (colGap > 0 && idx < arr.length - 1) {
+        child.style.marginRight = ((parseFloat(view.getComputedStyle(child).marginRight) || 0) + colGap) + 'px';
+      }
+      if (rowGap > 0) {
+        child.style.marginBottom = ((parseFloat(view.getComputedStyle(child).marginBottom) || 0) + rowGap) + 'px';
+      }
+    });
+  });
+}
+
+// Safety net for the SAME html2canvas bug described above, applied
+// automatically: any element whose only content is plain text (no child
+// elements — so this naturally skips multi-part badges like .pos-badge,
+// which has separate medal/number spans that need to stay side-by-side)
+// and that uses `display:flex; align-items:center` gets converted to
+// line-height centering just for the captured clone. This catches any
+// similar box that gets added later without someone remembering to apply
+// the CSS-level fix above.
+function fixTextVerticalCenterForCapture(clonedDoc) {
+  const view = clonedDoc.defaultView || window;
+  const all = clonedDoc.body ? clonedDoc.body.querySelectorAll('*') : [];
+  all.forEach(function (el) {
+    if (el.children.length > 0) return; // only pure-text leaf boxes
+    const text = el.textContent.trim();
+    if (!text) return;
+    const cs = view.getComputedStyle(el);
+    if (cs.display.indexOf('flex') === -1) return;
+    if (cs.alignItems !== 'center') return;
+    const h = el.getBoundingClientRect().height || parseFloat(cs.height) || 0;
+    if (!h) return;
+    el.style.display = 'block';
+    el.style.lineHeight = h + 'px';
+    el.style.textAlign = 'center';
+  });
+}
+
 function downloadResultImage() {
   const target = document.getElementById('share-capture');
   const btn = event ? event.currentTarget : null;
   const originalLabel = btn ? btn.innerHTML : null;
   if (btn) { btn.innerHTML = '⏳ Preparing…'; btn.disabled = true; }
 
-  html2canvas(target, { backgroundColor: '#0a0f1a', scale: 2, useCORS: true }).then(canvas => {
+  html2canvas(target, {
+    backgroundColor: '#0a0f1a',
+    scale: 2,
+    useCORS: true,
+    letterRendering: true,
+    onclone: function (clonedDoc) {
+      fixGapForCapture(clonedDoc);
+      fixTextVerticalCenterForCapture(clonedDoc);
+    }
+  }).then(canvas => {
     const link = document.createElement('a');
     link.download = 'draw-result-<?= $drawId ?>.png';
     link.href = canvas.toDataURL('image/png');
