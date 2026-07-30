@@ -71,6 +71,12 @@ $currentPage = $currentPage ?? '';
       </svg>
       Profile
     </a>
+    <a href="<?= APP_URL ?>/user/referral.php" class="nav-item <?= $currentPage === 'referral' ? 'active' : '' ?>">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+      </svg>
+      Referral
+    </a>
 
     <div class="px-4 pt-3 pb-1 text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor</div>
     <a href="<?= APP_URL ?>/vendor/register.php" class="nav-item text-orange-400 hover:bg-orange-500/10 ">
@@ -139,6 +145,7 @@ $currentPage = $currentPage ?? '';
       </div>
       <span>Profile</span>
     </a>
+    
 
   </div>
 </nav>

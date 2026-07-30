@@ -2,8 +2,21 @@
 // user/draw-detail.php
 // Shows full draw result: winner, top 3, ALL participants ranked,
 // logged-in user's row is highlighted and pinned at top.
+//
+// CHANGE LOG (this revision):
+//  - Participant ranking now comes from includes/draw-scoring.php::
+//    getDrawParticipantRanking(), the SAME function admin/select-winner.php
+//    uses. Positions here will always match what the admin saw live.
+//  - Gold/silver/bronze medal badges (🥇🥈🥉) and their highlight colors are
+//    now ONLY shown once the admin has officially confirmed a winner
+//    ($hasOfficialWinner). Before that, the "ranking" is just an unofficial
+//    entry-count-based ordering and is shown with plain numbers so it can't
+//    be mistaken for the real 1st/2nd/3rd place.
+//  - Added a "Share / Download" button that screenshots the result card
+//    with phone numbers masked, for posting on social media.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/draw-scoring.php';
 startAppSession();
 $db = getDB();
 
@@ -53,66 +66,17 @@ if ($hasOfficialWinner) {
     $top3Stmt->execute([$drawId]); $top3 = $top3Stmt->fetchAll();
 }
 
-// ── ALL participants ranked by matched digits ──────────────
-// We score each user's BEST code against the winning code
-$allParticipants = $db->prepare(
-    "SELECT u.id AS uid, u.full_name, u.phone,
-            COUNT(de.id)   AS entry_count,
-            MIN(de.entered_at) AS first_entry
-     FROM draw_entries de
-     JOIN users u ON u.id = de.user_id
-     WHERE de.draw_id = ?
-     GROUP BY de.user_id
-     ORDER BY entry_count DESC"
-);
-$allParticipants->execute([$drawId]);
-$allParticipants = $allParticipants->fetchAll();
-
-// Score each participant — find their best code match.
-// NOTE: $winningCode only exists once the admin has entered it as part of
-// conducting the raffle, so this scoring naturally stays inert until then.
+// ── ALL participants ranked ─────────────────────────────────
+// Uses the SAME scoring function as admin/select-winner.php so the position
+// numbers here are guaranteed to match what the admin saw while drawing.
+// $winningCode is null until the admin has entered it, so scoring naturally
+// stays inert (everyone scores 0 matches) until then.
 $winningCode = $draw['winning_code'] ?? null;
-$scoredParticipants = [];
-
-foreach ($allParticipants as $p) {
-    $matched  = 0;
-    $bestCode = null;
-
-    if ($winningCode) {
-        // Get all codes this user entered
-        $userCodes = $db->prepare(
-            "SELECT c.code FROM draw_entries de
-             JOIN codes c ON c.id = de.code_id
-             WHERE de.draw_id = ? AND de.user_id = ?"
-        );
-        $userCodes->execute([$drawId, $p['uid']]);
-        $userCodes = $userCodes->fetchAll(PDO::FETCH_COLUMN);
-
-        foreach ($userCodes as $uc) {
-            $m = 0;
-            for ($i = 0; $i < 15; $i++) {
-                if (isset($uc[$i], $winningCode[$i]) && $uc[$i] === $winningCode[$i]) $m++;
-            }
-            if ($m > $matched) { $matched = $m; $bestCode = $uc; }
-        }
-    }
-
-    $scoredParticipants[] = array_merge($p, [
-        'matched'   => $matched,
-        'best_code' => $bestCode,
-    ]);
-}
-
-// Sort: matched DESC → entry_count DESC → first_entry ASC
-usort($scoredParticipants, function($a, $b) {
-    if ($b['matched']     !== $a['matched'])     return $b['matched']     - $a['matched'];
-    if ($b['entry_count'] !== $a['entry_count']) return $b['entry_count'] - $a['entry_count'];
-    return strtotime($a['first_entry'])           - strtotime($b['first_entry']);
-});
+$scoredParticipants = getDrawParticipantRanking($db, $drawId, $winningCode);
 
 // Find logged-in user's position.
 // IMPORTANT: this "position" is purely an informational leaderboard ranking
-// computed client-side from entries/digit matches. It must NEVER be treated
+// computed from entries/digit matches. It must NEVER be treated
 // as equivalent to "this user won" — only $officialWinnerId (from the
 // admin-confirmed draw_winners row) determines that.
 $myPosition  = null;
@@ -130,7 +94,7 @@ foreach ($scoredParticipants as $pos => $p) {
 $isDeclaredWinner = $isLoggedIn && $hasOfficialWinner && $officialWinnerId === (int)$loggedInUserId;
 
 $totalParticipants = count($scoredParticipants);
-$totalEntries      = array_sum(array_column($scoredParticipants, 'entry_count'));
+$totalEntries       = array_sum(array_column($scoredParticipants, 'entry_count'));
 
 // ── Pagination for participant table ──────────────────────
 $tpage   = max(1, (int)($_GET['tpage'] ?? 1));
@@ -151,12 +115,18 @@ function maskName(string $name, bool $isMe = false): string {
     }, $parts));
 }
 
-function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningCode, ?int $loggedInUserId): void {
+// $hasOfficialWinner is threaded through so medal emoji/colors only ever
+// appear once the admin has actually confirmed a winner (correction #2).
+function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningCode, bool $hasOfficialWinner): void {
+    $showMedal = $hasOfficialWinner && $pos <= 3;
+    $badgeClass = $showMedal
+        ? ($pos===1?'bg-yellow-500/20 text-yellow-400':($pos===2?'bg-gray-400/15 text-gray-300':'bg-orange-700/15 text-orange-400'))
+        : 'bg-white/5 text-gray-500';
     ?>
     <tr class="<?= $isMe ? 'my-row' : '' ?>">
       <td class="px-4 py-3">
-        <div class="pos-badge <?= $pos===1?'bg-yellow-500/20 text-yellow-400':($pos===2?'bg-gray-400/15 text-gray-300':($pos===3?'bg-orange-700/15 text-orange-400':'bg-white/5 text-gray-500')) ?>">
-          <?= $pos <= 3 ? ['🥇','🥈','🥉'][$pos-1] : number_format($pos) ?>
+        <div class="pos-badge <?= $badgeClass ?>">
+          <?= $showMedal ? ['🥇','🥈','🥉'][$pos-1] : number_format($pos) ?>
         </div>
       </td>
       <td class="px-4 py-3">
@@ -192,6 +162,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     * { font-family: 'Poppins', sans-serif !important; }
     code { font-family: 'Courier New', monospace !important; }
@@ -238,9 +209,15 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
          class="text-orange-400 text-sm hover:underline">← Past Winners</a>
       <h1 class="text-base font-bold mt-0.5 truncate"><?= e($draw['title']) ?></h1>
     </div>
+    <button type="button" onclick="downloadResultImage()" data-html2canvas-ignore="true"
+            class="ml-auto btn btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 flex-shrink-0">
+      📤 Share
+    </button>
   </div>
 
   <div class="p-4 md:p-6 pb-24 md:pb-6">
+
+    <div id="share-capture">
 
     <!-- ── DRAW HEADER ─────────────────────────────────────── -->
     <div class="card p-5 mb-5"
@@ -282,7 +259,14 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
     <div class="rounded-xl p-4 mb-5 flex items-center gap-4 flex-wrap"
          style="background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3)">
       <div class="text-3xl flex-shrink-0">
-        <?= $isDeclaredWinner ? '🏆' : ($myPosition === 2 ? '🥈' : ($myPosition === 3 ? '🥉' : '📊')) ?>
+        <?php
+          // Medal emoji for #2/#3 only makes sense once the draw is official —
+          // otherwise this "position" is just an unofficial entries ranking.
+          if ($isDeclaredWinner) echo '🏆';
+          elseif ($hasOfficialWinner && $myPosition === 2) echo '🥈';
+          elseif ($hasOfficialWinner && $myPosition === 3) echo '🥉';
+          else echo '📊';
+        ?>
       </div>
       <div class="flex-1 min-w-0">
         <div class="font-bold text-orange-400">
@@ -352,7 +336,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-bold text-yellow-400 text-lg"><?= e($draw['winner_name']) ?></div>
-            <div class="text-sm text-gray-400"><?= e(_maskPhone($draw['winner_phone'])) ?></div>
+            <div class="text-sm text-gray-400"><?= e(maskPhoneDigits($draw['winner_phone'])) ?></div>
             <?php if ($draw['tiebreaker_used']): ?>
             <div class="text-xs text-orange-400 mt-0.5">via <?= e(str_replace('_',' ',$draw['tiebreaker_used'])) ?></div>
             <?php endif; ?>
@@ -447,7 +431,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
             <?php if ($hasOfficialWinner): ?>
             · sorted by digit match score
             <?php else: ?>
-            · order will be finalized once the winning number is drawn
+            · order will be finalized once the winning number is drawn — positions below are provisional (based on entries) and are <strong>not</strong> official 2nd/3rd place
             <?php endif; ?>
             <?php if ($isLoggedIn && $myPosition): ?>
             · <span class="text-orange-400">Your row is highlighted</span>
@@ -467,7 +451,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
       </div>
       <table class="w-full">
         <tbody>
-          <?php _renderParticipantRow($myRow, $myPosition, true, $winningCode, $loggedInUserId); ?>
+          <?php _renderParticipantRow($myRow, $myPosition, true, $winningCode, $hasOfficialWinner); ?>
         </tbody>
       </table>
       <div class="border-b border-white/5"></div>
@@ -487,7 +471,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
             <?php foreach ($tableRows as $rowIdx => $p):
               $globalPos = $toffset + $rowIdx + 1;
               $isMe      = $isLoggedIn && (int)$p['uid'] === (int)$loggedInUserId;
-              _renderParticipantRow($p, $globalPos, $isMe, $winningCode, $loggedInUserId);
+              _renderParticipantRow($p, $globalPos, $isMe, $winningCode, $hasOfficialWinner);
             endforeach; ?>
           </tbody>
         </table>
@@ -495,7 +479,7 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
 
       <!-- Table pagination -->
       <?php if ($tpages > 1): ?>
-      <div class="flex items-center justify-between px-4 py-3 border-t border-white/5">
+      <div class="flex items-center justify-between px-4 py-3 border-t border-white/5" data-html2canvas-ignore="true">
         <div class="text-xs text-gray-500">
           <?= number_format($toffset+1) ?>–<?= number_format(min($toffset+$tper,$totalParticipants)) ?>
           of <?= number_format($totalParticipants) ?>
@@ -511,6 +495,8 @@ function _renderParticipantRow(array $p, int $pos, bool $isMe, ?string $winningC
       </div>
       <?php endif; ?>
     </div>
+
+    </div><!-- /#share-capture -->
 
     <!-- Back link -->
     <div class="text-center">
@@ -535,12 +521,31 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <?php endif; ?>
+
+<script>
+// ── Share / Download screenshot ─────────────────────────────
+// Phone numbers on this page are already masked server-side
+// (maskPhoneDigits) wherever they're shown, so no extra client-side
+// masking is required before capture — this just downloads the card
+// as an image the user can post on social media.
+function downloadResultImage() {
+  const target = document.getElementById('share-capture');
+  const btn = event ? event.currentTarget : null;
+  const originalLabel = btn ? btn.innerHTML : null;
+  if (btn) { btn.innerHTML = '⏳ Preparing…'; btn.disabled = true; }
+
+  html2canvas(target, { backgroundColor: '#0a0f1a', scale: 2, useCORS: true }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = 'draw-result-<?= $drawId ?>.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    if (btn) { btn.innerHTML = originalLabel; btn.disabled = false; }
+  }).catch(err => {
+    console.error(err);
+    alert('Could not generate the image. Please try again.');
+    if (btn) { btn.innerHTML = originalLabel; btn.disabled = false; }
+  });
+}
+</script>
 </body>
 </html>
-<?php
-function _maskPhone(string $phone): string {
-    $p = preg_replace('/\D/', '', $phone);
-    if (strlen($p) < 7) return '***';
-    return substr($p,0,4) . '****' . substr($p,-3);
-}
-?>

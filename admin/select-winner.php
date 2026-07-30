@@ -3,9 +3,19 @@
 // Admin enters the 15-digit winning number from the physical machine.
 // Live table updates as digits are typed showing matching users.
 // Confirmation locks the winner permanently.
+//
+// CHANGE LOG (this revision):
+//  - Live AJAX table and the final winner/ranking calculation now both use
+//    includes/draw-scoring.php::getDrawParticipantRanking(), the SAME
+//    function used by user/draw-detail.php. This guarantees the admin's
+//    live "Live Participant Matching" table always shows participants in
+//    the exact same order/position as the user-facing result page.
+//  - Added a "Share / Download" button that screenshots the results table
+//    with phone numbers masked (e.g. 0803****188), for posting externally.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../mailer/index.php';
+require_once __DIR__ . '/../includes/draw-scoring.php';
 $auth = requireAdmin(); $adminId = $auth['id'];
 $db   = getDB();
 
@@ -37,54 +47,14 @@ if (isset($_GET['ajax']) && isset($_GET['digits'])) {
         exit;
     }
 
-    // Find all users who entered this draw
-    // Score each of their codes against the partial winning number so far
-    $entries = $db->prepare(
-        "SELECT u.id, u.full_name, u.phone, c.code,
-                de.entered_at
-         FROM draw_entries de
-         JOIN users u ON u.id = de.user_id
-         JOIN codes c ON c.id = de.code_id
-         WHERE de.draw_id = ?
-         ORDER BY de.entered_at ASC"
-    );
-    $entries->execute([$drawId]);
-    $entries = $entries->fetchAll();
+    // Shared ranking function — identical logic/tiebreakers to what the
+    // user-facing draw-detail.php page will eventually show.
+    $ranked = getDrawParticipantRanking($db, $drawId, $digits, $len);
 
-    // Score per user — best code only
-    $scores = [];
-    foreach ($entries as $entry) {
-        $uid     = (int)$entry['id'];
-        $code    = $entry['code'];
-        $matched = 0;
-        for ($i = 0; $i < $len; $i++) {
-            if (isset($code[$i], $digits[$i]) && $code[$i] === $digits[$i]) {
-                $matched++;
-            }
-        }
-        if (!isset($scores[$uid]) || $matched > $scores[$uid]['matched']) {
-            $scores[$uid] = [
-                'user_id'     => $uid,
-                'full_name'   => $entry['full_name'],
-                'phone'       => $entry['phone'],
-                'best_code'   => $code,
-                'matched'     => $matched,
-                'entry_count' => ($scores[$uid]['entry_count'] ?? 0),
-            ];
-        }
-        $scores[$uid]['entry_count'] = ($scores[$uid]['entry_count'] ?? 0) + 1;
-    }
-
-    // Sort: matched DESC → entry_count DESC
-    usort($scores, function($a, $b) {
-        if ($b['matched'] !== $a['matched']) return $b['matched'] - $a['matched'];
-        return $b['entry_count'] - $a['entry_count'];
-    });
-
-    // Return top 20 for display
+    // Return top 20 for display, 1-based position included so the admin
+    // sees the same position numbers the user will see.
     $out = [];
-    foreach (array_slice($scores, 0, 20) as $s) {
-        // Build highlighted code
+    foreach (array_slice($ranked, 0, 20) as $idx => $s) {
         $highlighted = [];
         for ($i = 0; $i < 15; $i++) {
             $highlighted[] = [
@@ -96,7 +66,8 @@ if (isset($_GET['ajax']) && isset($_GET['digits'])) {
             ];
         }
         $out[] = [
-            'user_id'     => $s['user_id'],
+            'position'    => $idx + 1,
+            'user_id'     => $s['uid'],
             'full_name'   => $s['full_name'],
             'phone'       => $s['phone'],
             'best_code'   => $s['best_code'],
@@ -109,7 +80,7 @@ if (isset($_GET['ajax']) && isset($_GET['digits'])) {
     echo json_encode([
         'users'          => $out,
         'digits_entered' => $len,
-        'total_entered'  => count($scores),
+        'total_entered'  => count($ranked),
     ]);
     exit;
 }
@@ -130,116 +101,87 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '') && !$alreadyHasWinner)
         if (!(int)$check->fetchColumn()) {
             $err = 'Selected winner did not participate in this draw.';
         } else {
-            // Get winner best code
-            $wEntries = $db->prepare(
-                "SELECT c.code FROM draw_entries de JOIN codes c ON c.id=de.code_id WHERE de.draw_id=? AND de.user_id=?"
-            );
-            $wEntries->execute([$drawId, $winnerId]);
-            $wCodes = $wEntries->fetchAll(PDO::FETCH_COLUMN);
-            $bestCode = ''; $bestMatch = -1;
-            foreach ($wCodes as $wc) {
-                $m = 0;
-                for ($i = 0; $i < 15; $i++) {
-                    if (isset($wc[$i], $winningCode[$i]) && $wc[$i] === $winningCode[$i]) $m++;
+            // Shared ranking against the FULL winning code — same function,
+            // same tiebreak order, as the live table and the user page.
+            $allScores = getDrawParticipantRanking($db, $drawId, $winningCode);
+
+            if (empty($allScores) || (int)$allScores[0]['uid'] !== $winnerId) {
+                // Guard rail: the winner submitted by the browser must match
+                // position #1 of the authoritative server-side ranking.
+                $err = 'Winner mismatch detected — please re-enter the digits and try again.';
+            } else {
+                $bestCode  = $allScores[0]['best_code'];
+                $bestMatch = $allScores[0]['matched'];
+                $tiebreaker = getDrawTiebreaker($allScores);
+
+                // Write draw_rankings
+                $db->exec("CREATE TABLE IF NOT EXISTS draw_rankings (
+                    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    draw_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL,
+                    rank_position TINYINT UNSIGNED NOT NULL, user_code CHAR(15) NOT NULL,
+                    matched_digits TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                    entries_count INT UNSIGNED NOT NULL DEFAULT 0,
+                    tiebreaker VARCHAR(100) DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_dr (draw_id,rank_position)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                foreach (array_slice($allScores, 0, 3) as $pos => $ranked) {
+                    $db->prepare(
+                        "INSERT INTO draw_rankings
+                            (draw_id,user_id,rank_position,user_code,matched_digits,entries_count,tiebreaker)
+                         VALUES (?,?,?,?,?,?,?)
+                         ON DUPLICATE KEY UPDATE
+                            user_id=VALUES(user_id), user_code=VALUES(user_code),
+                            matched_digits=VALUES(matched_digits), entries_count=VALUES(entries_count),
+                            tiebreaker=VALUES(tiebreaker)"
+                    )->execute([
+                        $drawId, $ranked['uid'], $pos + 1, $ranked['best_code'],
+                        $ranked['matched'], $ranked['entry_count'], $pos === 0 ? $tiebreaker : null,
+                    ]);
                 }
-                if ($m > $bestMatch) { $bestMatch = $m; $bestCode = $wc; }
-            }
 
-            // Get top 3 for rankings
-            $allEntries = $db->prepare(
-                "SELECT de.user_id, c.code, u.created_at AS user_created_at
-                 FROM draw_entries de JOIN codes c ON c.id=de.code_id JOIN users u ON u.id=de.user_id
-                 WHERE de.draw_id=?"
-            );
-            $allEntries->execute([$drawId]);
-            $allEntries = $allEntries->fetchAll();
+                // Write draw_winners
+                $db->prepare("INSERT INTO draw_winners (draw_id,user_id,winning_code,user_code,matched_digits,tiebreaker_used,announced_at) VALUES (?,?,?,?,?,?,NOW())")
+                   ->execute([$drawId,$winnerId,$winningCode,$bestCode,$bestMatch,$tiebreaker]);
 
-            $allScores = [];
-            foreach ($allEntries as $ae) {
-                $uid = (int)$ae['user_id'];
-                $m   = 0;
-                for ($i=0;$i<15;$i++) if(isset($ae['code'][$i],$winningCode[$i])&&$ae['code'][$i]===$winningCode[$i]) $m++;
-                if (!isset($allScores[$uid])) {
-                    $allScores[$uid] = ['matched'=>$m,'best_code'=>$ae['code'],'entry_count'=>0,'user_created_at'=>$ae['user_created_at']];
+                // Update draw
+                $db->prepare("UPDATE draws SET status='completed',winning_code=?,winner_user_id=?,finalized_at=NOW(),finalized_by=?,updated_at=NOW() WHERE id=?")
+                   ->execute([$winningCode,$winnerId,$adminId,$drawId]);
+
+                // Mark codes used
+                $db->prepare("UPDATE codes SET status='used' WHERE id IN (SELECT code_id FROM draw_entries WHERE draw_id=?)")
+                   ->execute([$drawId]);
+
+                // In-app notification
+                if (function_exists('createNotification')) {
+                    $wUser = $db->prepare("SELECT full_name FROM users WHERE id=?");
+                    $wUser->execute([$winnerId]); $wUser = $wUser->fetch();
+                    createNotification($winnerId,'🏆 You Won! — '.$draw['title'],
+                        "Congratulations {$wUser['full_name']}! Your code matched $bestMatch/15 digits of the winning number $winningCode. Contact admin to claim your prize.",'draw');
                 }
-                if ($m > $allScores[$uid]['matched']) { $allScores[$uid]['matched']=$m; $allScores[$uid]['best_code']=$ae['code']; }
-                $allScores[$uid]['entry_count']++;
+
+                // Email winner
+                $wInfo = $db->prepare("SELECT full_name, email FROM users WHERE id=?");
+                $wInfo->execute([$winnerId]); $wInfo = $wInfo->fetch();
+                if ($wInfo && $wInfo['email']) {
+                    $subject = '🏆 You Won — ' . $draw['title'];
+                    $body = '<p>Hi '.$wInfo['full_name'].',</p>
+                             <p>Congratulations! You won the <strong>'.$draw['title'].'</strong> draw.</p>
+                             <p>Your code <strong style="font-family:monospace">'.$bestCode.'</strong> matched <strong>'.$bestMatch.'/15</strong> digits of the winning number.</p>
+                             <p>Prize: '.($draw['prize_details']??'Contact admin').'</p>
+                             <p>Please contact ZoeFeeds admin to claim your prize.</p>';
+                    smtpmailer($wInfo['email'], $subject, $body);
+                }
+
+                auditLog('admin',$adminId,'select_winner',"Winner selected for draw #$drawId — user #$winnerId, code $winningCode",'draw',$drawId);
+                redirect(APP_URL.'/admin/winners.php?draw='.$drawId.'&selected=1');
             }
-            usort($allScores, function($a,$b){
-                if($b['matched']!==$a['matched']) return $b['matched']-$a['matched'];
-                if($b['entry_count']!==$a['entry_count']) return $b['entry_count']-$a['entry_count'];
-                return strtotime($a['user_created_at'])-strtotime($b['user_created_at']);
-            });
-
-            // Detect tiebreaker
-            $tiebreaker = null;
-            if (count($allScores) > 1 && $allScores[0]['matched'] === ($allScores[1]['matched'] ?? -1)) {
-                $tiebreaker = ($allScores[0]['entry_count'] !== ($allScores[1]['entry_count'] ?? -1))
-                    ? 'most_entries' : 'earliest_registration';
-            }
-
-            // Write draw_rankings
-            $db->exec("CREATE TABLE IF NOT EXISTS draw_rankings (
-                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                draw_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL,
-                rank_position TINYINT UNSIGNED NOT NULL, user_code CHAR(15) NOT NULL,
-                matched_digits TINYINT UNSIGNED NOT NULL DEFAULT 0,
-                entries_count INT UNSIGNED NOT NULL DEFAULT 0,
-                tiebreaker VARCHAR(100) DEFAULT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_dr (draw_id,rank_position)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-            $top3 = array_slice($allScores, 0, 3);
-            $uids = array_column($top3, 'user_id', null);
-            // Re-attach user_id key properly
-            $flat = array_values($allScores);
-            foreach (array_slice($flat, 0, 3) as $pos => $ranked) {
-                $db->prepare("INSERT INTO draw_rankings (draw_id,user_id,rank_position,user_code,matched_digits,entries_count,tiebreaker) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE user_code=VALUES(user_code),matched_digits=VALUES(matched_digits)")
-                   ->execute([$drawId, array_keys($allScores)[$pos], $pos+1, $ranked['best_code'], $ranked['matched'], $ranked['entry_count'], $pos===0?$tiebreaker:null]);
-            }
-
-            // Write draw_winners
-            $db->prepare("INSERT INTO draw_winners (draw_id,user_id,winning_code,user_code,matched_digits,tiebreaker_used,announced_at) VALUES (?,?,?,?,?,?,NOW())")
-               ->execute([$drawId,$winnerId,$winningCode,$bestCode,$bestMatch,$tiebreaker]);
-
-            // Update draw
-            $db->prepare("UPDATE draws SET status='completed',winning_code=?,winner_user_id=?,finalized_at=NOW(),finalized_by=?,updated_at=NOW() WHERE id=?")
-               ->execute([$winningCode,$winnerId,$adminId,$drawId]);
-
-            // Mark codes used
-            $db->prepare("UPDATE codes SET status='used' WHERE id IN (SELECT code_id FROM draw_entries WHERE draw_id=?)")
-               ->execute([$drawId]);
-
-            // In-app notification
-            if (function_exists('createNotification')) {
-                $wUser = $db->prepare("SELECT full_name FROM users WHERE id=?");
-                $wUser->execute([$winnerId]); $wUser = $wUser->fetch();
-                createNotification($winnerId,'🏆 You Won! — '.$draw['title'],
-                    "Congratulations {$wUser['full_name']}! Your code matched $bestMatch/15 digits of the winning number $winningCode. Contact admin to claim your prize.",'draw');
-            }
-
-            // Email winner
-            $wInfo = $db->prepare("SELECT full_name, email FROM users WHERE id=?");
-            $wInfo->execute([$winnerId]); $wInfo = $wInfo->fetch();
-            if ($wInfo && $wInfo['email']) {
-                $subject = '🏆 You Won — ' . $draw['title'];
-                $body = '<p>Hi '.$wInfo['full_name'].',</p>
-                         <p>Congratulations! You won the <strong>'.$draw['title'].'</strong> draw.</p>
-                         <p>Your code <strong style="font-family:monospace">'.$bestCode.'</strong> matched <strong>'.$bestMatch.'/15</strong> digits of the winning number.</p>
-                         <p>Prize: '.($draw['prize_details']??'Contact admin').'</p>
-                         <p>Please contact ZoeFeeds admin to claim your prize.</p>';
-                smtpmailer($wInfo['email'], $subject, $body);
-            }
-
-            auditLog('admin',$adminId,'select_winner',"Winner selected for draw #$drawId — user #$winnerId, code $winningCode",'draw',$drawId);
-            redirect(APP_URL.'/admin/winners.php?draw='.$drawId.'&selected=1');
         }
     }
 }
 
 // Total entries
-$totalEntries = (int)$db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?")->execute([$drawId]) ? 0 : 0;
 $s = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?");
 $s->execute([$drawId]); $totalEntries = (int)$s->fetchColumn();
 $s = $db->prepare("SELECT COUNT(DISTINCT user_id) FROM draw_entries WHERE draw_id=?");
@@ -255,6 +197,7 @@ $aPage = 'draws';
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     *{font-family:'Poppins',sans-serif!important}
     code{font-family:'Courier New',monospace!important}
@@ -393,16 +336,22 @@ $aPage = 'draws';
     </div>
 
     <!-- Live results table -->
-    <div class="card mb-5">
-      <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/5">
+    <div class="card mb-5" id="share-capture">
+      <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/5 flex-wrap gap-2">
         <div>
           <h3 class="font-bold">Live Participant Matching</h3>
           <div class="text-xs text-gray-500 mt-0.5" id="table-subtitle">Enter digits above to see matching users</div>
         </div>
-        <div id="match-legend" class="hidden flex items-center gap-3 text-xs text-gray-500">
-          <span><span class="code-slot match inline-flex">0</span> match</span>
-          <span><span class="code-slot no-match inline-flex">0</span> no match</span>
-          <span><span class="code-slot unchecked inline-flex">0</span> not yet entered</span>
+        <div class="flex items-center gap-3">
+          <div id="match-legend" class="hidden items-center gap-3 text-xs text-gray-500">
+            <span><span class="code-slot match inline-flex">0</span> match</span>
+            <span><span class="code-slot no-match inline-flex">0</span> no match</span>
+            <span><span class="code-slot unchecked inline-flex">0</span> not yet entered</span>
+          </div>
+          <button type="button" onclick="downloadResultImage()" data-html2canvas-ignore="true"
+                  class="btn btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5">
+            📤 Share / Download
+          </button>
         </div>
       </div>
 
@@ -542,7 +491,6 @@ function getEnteredDigits() {
 
 function onDigitsChanged() {
   const digits = getEnteredDigits();
-  const filled = digits.replace(/\s/g, '').length;
   // Count only positions that have a value
   const filledCount = otpInputs.filter(i => i.value !== '').length;
 
@@ -600,11 +548,13 @@ function renderResults(data, filledCount) {
   emptyState.classList.add('hidden');
   resultsWrap.classList.remove('hidden');
   matchLegend.classList.remove('hidden');
-  tableSubtitle.textContent = 'Showing top ' + data.users.length + ' of ' + data.total_entered + ' participants — sorted by most digit matches';
+  matchLegend.classList.add('flex');
+  tableSubtitle.textContent = 'Showing top ' + data.users.length + ' of ' + data.total_entered + ' participants — sorted by most digit matches (same order the user will see)';
 
   let rows = '';
-  data.users.forEach((u, idx) => {
-    const isTop = idx === 0;
+  data.users.forEach((u) => {
+    // u.position is the SAME position number the user-facing page will show
+    const isTop = u.position === 1;
     const rowClass = isTop && filledCount >= 5 ? 'winner-row' : '';
 
     // Build code display
@@ -619,11 +569,11 @@ function renderResults(data, filledCount) {
     const matchColor = u.matched >= 10 ? '#22c55e' : u.matched >= 5 ? '#fbbf24' : '#9ca3af';
 
     rows += `<tr class="${rowClass}" style="border-bottom:1px solid rgba(255,255,255,.05)">
-      <td class="px-4 py-3 text-sm text-gray-500">${idx === 0 && filledCount >= 5 ? '🏆' : (idx + 1)}</td>
+      <td class="px-4 py-3 text-sm text-gray-500">${u.position === 1 && filledCount >= 5 ? '🏆' : u.position}</td>
       <td class="px-4 py-3">
         <div class="font-semibold text-sm ${isTop && filledCount >= 5 ? 'text-yellow-400' : 'text-white'}">${escHtml(u.full_name)}</div>
       </td>
-      <td class="px-4 py-3 text-sm font-mono text-gray-400">${escHtml(u.phone)}</td>
+      <td class="px-4 py-3 text-sm font-mono text-gray-400" data-full-phone="${escHtml(u.phone)}">${escHtml(u.phone)}</td>
       <td class="px-4 py-3"><div class="flex flex-wrap gap-0.5">${codeHtml}</div></td>
       <td class="px-4 py-3 text-right">
         <span class="font-black text-base" style="color:${matchColor}">${u.matched}/${data.digits_entered}</span>
@@ -635,7 +585,7 @@ function renderResults(data, filledCount) {
 
   // Update confirm section when all 15 digits entered
   if (filledCount === TOTAL_DIGITS && data.users.length > 0) {
-    const winner = data.users[0];
+    const winner = data.users[0]; // position 1 — matches the user page's #1
     currentWinnerId   = winner.user_id;
     currentWinnerName = winner.full_name;
     currentMatched    = winner.matched;
@@ -671,6 +621,38 @@ function confirmWinner() {
 
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Share / Download screenshot (phone numbers masked) ─────
+function maskPhoneForShare(phone) {
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 7) return '***';
+  return digits.slice(0, 4) + '****' + digits.slice(-3);
+}
+
+function downloadResultImage() {
+  const target = document.getElementById('share-capture');
+  const phoneCells = target.querySelectorAll('[data-full-phone]');
+
+  // Temporarily mask phone numbers before capture, restore afterwards
+  const originals = [];
+  phoneCells.forEach(td => {
+    originals.push(td.textContent);
+    td.textContent = maskPhoneForShare(td.getAttribute('data-full-phone'));
+  });
+
+  html2canvas(target, { backgroundColor: '#0a0f1a', scale: 2, useCORS: true }).then(canvas => {
+    phoneCells.forEach((td, i) => { td.textContent = originals[i]; });
+
+    const link = document.createElement('a');
+    link.download = 'draw-result-<?= $drawId ?>.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(err => {
+    phoneCells.forEach((td, i) => { td.textContent = originals[i]; });
+    console.error(err);
+    alert('Could not generate the image. Please try again.');
+  });
 }
 </script>
 </body>

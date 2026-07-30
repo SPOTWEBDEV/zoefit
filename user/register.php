@@ -3,11 +3,17 @@
 // Blocks any phone or email already used in the vendors table.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/referral.php';
 startAppSession();
 if (!empty($_SESSION['user_id'])) redirect(APP_URL.'/user/dashboard.php');
 
 $redirect = trim($_GET['redirect'] ?? $_POST['redirect'] ?? '');
 $redirect = (str_starts_with($redirect, APP_URL) || str_starts_with($redirect, '/')) ? $redirect : '';
+
+// Referral code: picked up from ?ref=CODE on the landing URL (e.g. shared
+// via user/referral.php), carried through the form as a hidden field so it
+// survives the POST even if validation fails and the form re-renders.
+$refCode = trim($_GET['ref'] ?? $_POST['ref'] ?? '');
 
 $error = $success = '';
 
@@ -74,6 +80,19 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
                 createNotification($userId, '👋 Welcome to ZoeFeeds!',
                     'Your account has been created. Redeem your first raffle code to get started!', 'info');
 
+                // ── Referral system ────────────────────────────────
+                // Every user gets their own shareable code, and — if they
+                // signed up via someone else's link/code — we record who
+                // referred them. The actual free-code reward is granted
+                // later, the first time THIS user redeems a code (see
+                // includes/referral.php::maybeGrantReferralReward(),
+                // wired into the redemption flow), not at registration
+                // time, to discourage fake signups from paying out.
+                assignReferralCode($db, $userId);
+                if ($refCode !== '') {
+                    attachReferrer($db, $userId, $refCode);
+                }
+
                 // Auto-login then redirect
                 $_SESSION['user_id']       = $userId;
                 $_SESSION['user_name']     = $fullName;
@@ -121,6 +140,13 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     </div>
     <?php endif; ?>
 
+    <?php if ($refCode): ?>
+    <div class="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 mb-5 flex items-center gap-2 text-sm">
+      <span class="text-purple-400">🎁</span>
+      <span class="text-gray-300">Signing up with referral code <strong class="text-white font-mono"><?= e($refCode) ?></strong> — your referrer earns a free code once you redeem your first one!</span>
+    </div>
+    <?php endif; ?>
+
     <?php if ($error): ?>
     <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm"><?= $error ?></div>
     <?php endif; ?>
@@ -128,6 +154,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     <form method="POST">
       <?= csrfField() ?>
       <?php if ($redirect): ?><input type="hidden" name="redirect" value="<?= e($redirect) ?>"><?php endif; ?>
+      <?php if ($refCode): ?><input type="hidden" name="ref" value="<?= e($refCode) ?>"><?php endif; ?>
 
       <div class="form-group">
         <label class="form-label">Full Name <span class="text-red-400">*</span></label>

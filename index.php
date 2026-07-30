@@ -171,10 +171,51 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
 <body class="bg-[#0a0f1a] text-white overflow-x-hidden">
 
+  <div class="social-media-icon fixed w-full z-50 glass py-2 px-2 sm:px-8 flex flex-col md:flex-row  justify-between gap-4 bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400">
+    <div class="flex flex-wrap gap-2">
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75M12 13.125a1.875 1.875 0 100-3.75 1.875 1.875 0 000 3.75z" />
+        </svg>
+        <p>support@zoefeeds.com</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p>https://zoefeeds.com</p>
+      </div>
+    </div>
+    <div class="flex gap-3 items-center justify-end md:justify-start">
+       <p>Connect with us on social media</p>
+       <div class="flex gap-3">
+      <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" class="flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-blue-400" target="_blank" rel="noopener noreferrer">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6">
+          <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.9h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+        </svg>
+
+      </a>
+
+      <a href="https://youtube.com/@zoefeedsloyaltyrewards?si=j0ibB156206GB7Zc" target="_blank" rel="noopener noreferrer">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#ef4444">
+            <path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
+          </svg>
+      </a>
+      <a href="https://www.tiktok.com/@zoefeedsraffles?_r=1&_t=ZN-97tsm7fZ1Mc" target="_blank" rel="noopener noreferrer">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff">
+            <path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z" />
+          </svg>
+
+      </a>
+    </div>
+    </div>
+
+  </div>
+
   <!-- ======================================================
      NAVBAR
 ====================================================== -->
-  <nav class="fixed top-0 w-full z-50 glass border-b border-white/5">
+  <nav class="fixed top-32 sm:top-20 md:top-10 w-full z-50 glass border-b border-white/5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="flex items-center justify-between h-16">
 
@@ -575,7 +616,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <!-- ======================================================
      TESTIMONIALS
 ====================================================== -->
-<section class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
+  <section class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
     <div class="text-center mb-12">
       <h2 class="text-4xl font-black mb-3">What Participants Say</h2>
       <p class="text-gray-400 text-sm">Real experiences from real ZoeFeeds users</p>
@@ -597,18 +638,18 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           </div>
           <p class="text-gray-300 text-sm leading-relaxed mb-5">"<?= nl2br(e($t['content'])) ?>"</p>
           <div class="flex items-center gap-3">
-            <?php if ($t['photo'] && file_exists(UPLOAD_PATH.$t['photo'])): ?>
-            <img src="<?= APP_URL ?>/uploads/<?= e($t['photo']) ?>"
-                 class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
+            <?php if ($t['photo'] && file_exists(UPLOAD_PATH . $t['photo'])): ?>
+              <img src="<?= APP_URL ?>/uploads/<?= e($t['photo']) ?>"
+                class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
             <?php else: ?>
-            <div class="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center font-bold text-orange-400 flex-shrink-0">
-              <?= e(mb_substr($t['full_name'], 0, 1)) ?>
-            </div>
+              <div class="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center font-bold text-orange-400 flex-shrink-0">
+                <?= e(mb_substr($t['full_name'], 0, 1)) ?>
+              </div>
             <?php endif; ?>
             <div>
               <div class="font-semibold text-sm"><?= e($t['full_name']) ?></div>
               <?php if ($t['role_title']): ?>
-              <div class="text-xs text-gray-500"><?= e($t['role_title']) ?></div>
+                <div class="text-xs text-gray-500"><?= e($t['role_title']) ?></div>
               <?php endif; ?>
             </div>
           </div>
@@ -838,18 +879,18 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       });
     });
     // Close mobile menu when clicking outside of it
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('mob-menu');
-  const btn  = document.getElementById('mob-menu-btn');
-  if (!menu || menu.classList.contains('hidden')) return;
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('mob-menu');
+      const btn = document.getElementById('mob-menu-btn');
+      if (!menu || menu.classList.contains('hidden')) return;
 
-  const clickedInsideMenu = menu.contains(e.target);
-  const clickedButton     = btn.contains(e.target);
+      const clickedInsideMenu = menu.contains(e.target);
+      const clickedButton = btn.contains(e.target);
 
-  if (!clickedInsideMenu && !clickedButton) {
-    menu.classList.add('hidden');
-  }
-});
+      if (!clickedInsideMenu && !clickedButton) {
+        menu.classList.add('hidden');
+      }
+    });
     // Fade-in on scroll
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => {
