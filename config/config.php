@@ -1,11 +1,28 @@
 <?php
+// 1. Load Composer Autoloader
+require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/database.php';
 
-define('APP_NAME',    'ZoeFeeds');
+// 2. Load .env file safely
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+$dotenv->safeLoad();
+
+// 3. Define Environment Constants
+define('ZF_ENV', $_ENV['APP_ENV'] ?? 'production');
+define('APP_NAME', 'ZoeFeeds');
 define('APP_VERSION', '1.0.0');
 define('APP_TAGLINE', 'Loyalty Reward Platform');
 
+// 4. Load Paystack Credentials & URLs from .env
+define('PAYSTACK_SECRET_KEY', $_ENV['PAYSTACK_SECRET_KEY'] ?? '');
+define('PAYSTACK_PUBLIC_KEY', $_ENV['PAYSTACK_PUBLIC_KEY'] ?? '');
+define('PAYSTACK_BASE_URL',   $_ENV['PAYSTACK_BASE_URL'] ?? 'https://api.paystack.co');
+
 function zf_build_app_url(): string {
+  if (!empty($_ENV['APP_URL'])) {
+      return rtrim($_ENV['APP_URL'], '/');
+  }
+
   $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
         || (!empty($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
@@ -32,7 +49,7 @@ define('LOGS_PER_PAGE',         25);
 define('CODE_LENGTH',           15);
 define('UPLOAD_PATH',           realpath(__DIR__.'/../uploads').DIRECTORY_SEPARATOR);
 define('UPLOAD_URL',            APP_URL.'/uploads/');
-define('SESSION_IDLE_TIMEOUT', 900); // seconds of inactivity before auto-logout (15 min)
+define('SESSION_IDLE_TIMEOUT',  900); // seconds of inactivity before auto-logout (15 min)
 
 function startAppSession(): void {
   if (session_status() === PHP_SESSION_NONE) {

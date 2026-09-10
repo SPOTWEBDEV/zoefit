@@ -17,8 +17,8 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZoeFeeds — Loyalty Reward & Raffle Platform</title>
-  <meta name="description" content="ZoeFeeds is  official loyalty reward and raffle draw platform. Redeem codes, enter draws, win amazing prizes — fair, transparent and compliant.">
+  <title>ZoeFeeds — Buy Cheap Airtime &amp; Data, Win Big Prizes</title>
+  <meta name="description" content="ZoeFeeds lets you buy cheap, long-lasting airtime and data — and every purchase automatically earns you a raffle code to enter our fair, transparent draws for cash and prizes.">
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -225,6 +225,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         </a>
 
         <div class="hidden md:flex items-center gap-7">
+          <a href="#buy" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Buy Airtime/Data</a>
           <a href="#draws" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Draws</a>
           <a href="#how-it-works" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">How It Works</a>
           <a href="#winners" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Winners</a>
@@ -255,7 +256,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 
       <!-- Mobile menu -->
       <div id="mob-menu" class="hidden md:hidden pb-4 space-y-1 border-t border-white/5 pt-3">
-        <?php foreach (['#draws' => 'Draws', '#how-it-works' => 'How It Works', '#winners' => 'Winners', '#about' => 'About', '#faq' => 'FAQ'] as $h => $l): ?>
+        <?php foreach (['#buy' => 'Buy Airtime/Data', '#draws' => 'Draws', '#how-it-works' => 'How It Works', '#winners' => 'Winners', '#about' => 'About', '#faq' => 'FAQ'] as $h => $l): ?>
           <a href="<?= $h ?>" class="block px-3 py-2 text-gray-400 hover:text-white text-sm rounded-lg hover:bg-white/5" onclick="document.getElementById('mob-menu').classList.add('hidden')"><?= $l ?></a>
         <?php endforeach; ?>
         <!-- Vendor link in mobile menu -->
@@ -296,15 +297,15 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         <!-- Left -->
         <div>
           <div class="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-2 text-sm font-semibold text-orange-400 mb-6">
-            <span class="pulse-dot"></span> Official Loyalty Reward Platform
+            <span class="pulse-dot"></span> Cheap Airtime &amp; Data, Free Raffle Codes
           </div>
           <h1 class="text-5xl md:text-6xl lg:text-7xl font-black leading-[1.05] mb-6 tracking-tight">
-            Redeem.<br>
-            Enter.<br>
+            Buy Data.<br>
+            Buy Airtime.<br>
             <span class="gt">Win Big.</span>
           </h1>
           <p class="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
-            ZoeFeeds rewards loyal customers through a <strong class="text-white">fair, transparent, and fully regulated</strong> draw program. Collect 15-digit raffle codes from eligible purchases, enter live draws, and win life-changing prizes.
+            ZoeFeeds gives you <strong class="text-white">cheap, long-lasting airtime and data</strong> — and every purchase automatically earns you a 15-digit raffle code. Redeem your code, enter live draws, and win life-changing prizes through a <strong class="text-white">fair, transparent, and fully regulated</strong> program.
           </p>
           <!-- Live Stats — rendered from DB and updated in real-time via JS -->
           <div class="flex flex-wrap gap-6 mb-9 text-sm">
@@ -322,7 +323,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
             </div>
           </div>
           <div class="flex flex-wrap gap-3 mb-8">
-            <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-8 py-4 text-base font-bold">🎟️ Start Winning Free</a>
+            <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-8 py-4 text-base font-bold">📶 Buy Airtime &amp; Data Now</a>
             <a href="#how-it-works" class="btn btn-secondary px-8 py-4 text-base">How It Works →</a>
           </div>
           <!-- Login prompt -->
@@ -330,10 +331,10 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
             <a href="<?= APP_URL ?>/user/login.php" class="btn btn-secondary px-6 py-3 text-sm font-semibold">🔑 Log In to Your Account</a>
           </div>
           <div class="flex flex-wrap gap-4 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Free to join</span>
+            <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Cheap, long-lasting bundles</span>
+            <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Free raffle code on every purchase</span>
             <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Regulated &amp; compliant</span>
             <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Transparent draw process</span>
-            <span class="flex items-center gap-1.5"><span class="text-green-400 text-base">✓</span> Verified winners</span>
           </div>
         </div>
 
@@ -347,10 +348,10 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
                   <div class="text-4xl font-black text-orange-400 mt-1" style="font-family:'Courier New',monospace">47</div>
                   <div class="text-xs text-gray-500">Active Codes</div>
                 </div>
-                <div class="w-14 h-14 bg-orange-500/20 rounded-2xl flex items-center justify-center text-3xl">🎯</div>
+                <div class="w-14 h-14 bg-orange-500/20 rounded-2xl flex items-center justify-center text-3xl">📶</div>
               </div>
               <div class="bg-black/30 rounded-xl p-4 mb-4">
-                <div class="text-xs text-gray-500 mb-2">Latest Code</div>
+                <div class="text-xs text-gray-500 mb-2">Code earned from 2GB Data Purchase</div>
                 <div class="font-mono text-orange-400 font-bold text-lg tracking-widest">7 4 2 0 8 1 9 3 5 6 2 7 4 0 1</div>
                 <div class="badge badge-success mt-2">● Active</div>
               </div>
@@ -371,8 +372,8 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
               <div class="text-sm font-bold text-white">₦500,000</div>
             </div>
             <div class="absolute -bottom-4 -left-4 glass rounded-2xl px-4 py-3">
-              <div class="text-xs text-green-400 font-semibold">✓ Code Redeemed</div>
-              <div class="font-mono text-xs text-gray-300 mt-1">7 4 2 0 8 1 9 ...</div>
+              <div class="text-xs text-green-400 font-semibold">✓ Data Purchased</div>
+              <div class="font-mono text-xs text-gray-300 mt-1">1GB — Code auto-issued</div>
             </div>
           </div>
         </div>
@@ -393,7 +394,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
 ====================================================== -->
   <div class="bg-orange-500/8 border-y border-orange-500/15 py-3 ticker-wrap">
     <div class="ticker gap-0">
-      <?php $items = ['🎯 Raffle Draw Platform', '✅ Verified &amp; Compliant', '🏆 Life-Changing Prizes', '🔒 Secure &amp; Transparent', '🎟️ Free Code Redemption', '📱 Airtime &amp; Data Soon', '⚡ Utility Bills Soon'];
+      <?php $items = ['📶 Buy Cheap Airtime &amp; Data', '🎟️ Free Raffle Code Per Purchase', '✅ Verified &amp; Compliant', '🏆 Life-Changing Prizes', '🔒 Secure &amp; Transparent', '⚡ Utility Bills Soon'];
       for ($i = 0; $i < 4; $i++) foreach ($items as $it): ?>
         <span class="text-orange-300/80 font-medium text-sm px-8 whitespace-nowrap"><?= $it ?></span>
         <span class="text-orange-500/30 text-xl px-2">·</span>
@@ -417,7 +418,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
               <img src="<?= APP_URL ?>/uploads/<?= e($s['image_path']) ?>" class="w-full h-64 object-cover" alt="<?= e($s['title'] ?? '') ?>">
             <?php else: ?>
               <div class="h-64 flex flex-col items-center justify-center" style="background:linear-gradient(135deg,#1a2235,#0d1929)">
-                <div class="text-5xl mb-3">🎯</div>
+                <div class="text-5xl mb-3">📶</div>
                 <div class="text-xl font-bold"><?= e($s['title'] ?? 'ZoeFeeds Campaign') ?></div>
               </div>
             <?php endif; ?>
@@ -439,7 +440,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           <span class="pulse-dot" style="background:#ef4444"></span> Live Draws
         </div>
         <h2 class="text-4xl font-black mb-3">Active Draw Campaigns</h2>
-        <p class="text-gray-400 max-w-lg mx-auto text-sm">Enter draws using your redeemed codes. Every valid entry has an equal chance of selection. There are <strong class="text-orange-400">mandatory</strong> winners every draw.</p>
+        <p class="text-gray-400 max-w-lg mx-auto text-sm">Every airtime or data purchase earns you a code. Enter draws using your redeemed codes — every valid entry has an equal chance of selection, and there is a <strong class="text-orange-400">mandatory</strong> winner every draw.</p>
       </div>
 
       <?php if ($draws): ?>
@@ -503,8 +504,8 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
     <div class="grid md:grid-cols-4 gap-8 relative">
       <?php $steps = [
         ['1', '📝', 'Create Your Account', 'Register with your phone number in under 60 seconds. Free forever. Age 18+ only.'],
-        ['2', '🎟️', 'Redeem Your Code', 'Redeem your unique 15-digit raffle code given by our verified vendor into your ZoeFeeds wallet.'],
-        ['3', '🎯', 'Enter a Draw', 'Choose an active draw campaign and submit your code(s). More codes = more chances.'],
+        ['2', '📶', 'Buy Airtime or Data', 'Purchase cheap, long-lasting airtime or data bundles directly on ZoeFeeds. Every successful purchase automatically issues you a unique 15-digit raffle code into your wallet — no extra step needed.'],
+        ['3', '🎯', 'Enter a Draw', 'Choose an active draw campaign and submit your code(s). More purchases = more codes = more chances.'],
         ['4', '🏆', 'Win Prizes', 'Our transparent, certified manual machine draw process selects winners fairly. Winners are notified via SMS, email &amp; website announcement.'],
       ];
       foreach ($steps as $i => $s): ?>
@@ -535,10 +536,10 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
           </div>
           <h2 class="text-4xl font-black mb-5">Our Purpose</h2>
           <p class="text-gray-400 leading-relaxed mb-4">
-            The <strong class="text-white">ZoeFeeds Reward Draw</strong> is a customer appreciation and promotional campaign organized by ZoeFeeds. It is designed to reward eligible customers through a transparent and fair draw process.
+            ZoeFeeds helps customers get <strong class="text-white">cheap, reliable airtime and data</strong> while running the <strong class="text-white">ZoeFeeds Reward Draw</strong> — a customer appreciation and promotional campaign designed to reward eligible customers through a transparent and fair draw process.
           </p>
           <p class="text-gray-400 leading-relaxed mb-4">
-            Our aim is to <strong class="text-white">reward and appreciate loyal customers</strong> through a fair, transparent, and compliant promotional reward program while providing access to valuable products and services.
+            Our aim is to <strong class="text-white">reward and appreciate loyal customers</strong> through a fair, transparent, and compliant promotional reward program while providing affordable access to airtime, data, and other valuable products and services.
           </p>
           <p class="text-gray-400 leading-relaxed mb-6">
             The Promotion is intended solely as a <strong class="text-white">customer appreciation initiative</strong> and shall not be construed as a gambling, betting, or wagering activity. All draws are conducted in accordance with applicable laws and regulatory approvals.
@@ -550,7 +551,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         </div>
         <div class="grid grid-cols-2 gap-4">
           <?php $vals = [
-            ['🔒', 'Secure', 'End-to-end account security and data protection'],
+            ['📶', 'Affordable', 'Cheap, long-lasting airtime & data bundles at competitive rates'],
             ['⚖️', 'Fair', 'Equal chance for every valid entry. Certified random selection process.'],
             ['👁️', 'Transparent', 'Live draw reveals. Every digit shown publicly in real-time.'],
             ['✅', 'Verified', 'All winners independently verified before prizes are awarded.'],
@@ -727,19 +728,19 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
       <?php $faqs = [
         [
           'How do I get ZoeFeeds raffle codes (raffle tickets)?',
-          'You automatically receive real free ZoeFeeds codes (raffle tickets) in two ways: the first is whenever you purchase eligible products or services from ZoeFeeds; the second is by gifting — whenever anyone freely gifts you the ticket code directly or automatically. Each qualifying purchase earns you entry codes that are included in the promotional draw. When you redeem your code it will be recorded and linked to your account. You can also check your account dashboard to view your available codes.'
+          'You automatically receive real free ZoeFeeds codes (raffle tickets) whenever you buy airtime or data on ZoeFeeds — each successful purchase instantly generates a code for you. You can also receive codes by gifting, whenever anyone freely gifts you a ticket code directly. Every qualifying purchase earns you entry codes that are included in the promotional draw. Once issued, a code is recorded and linked to your account, and you can check your account dashboard to view your available codes.'
         ],
         [
           'How much is a ZoeFeeds raffle code (raffle ticket)?',
-          'ZoeFeeds raffle codes are completely free and are automatically awarded when you purchase eligible products or services on ZoeFeeds. You do not pay separately for raffle codes. <strong class="text-red-400">Warning:</strong> ZoeFeeds does not sell raffle codes or tickets, and anyone claiming to sell them is not authorized by ZoeFeeds. Our aim is to reward and appreciate our customers through a fair and transparent promotional reward program while providing affordable products and services. On any third-party platform, ZoeFeeds codes must be transferred to you as a gift — never sold.'
+          'ZoeFeeds raffle codes are completely free and are automatically awarded when you purchase airtime, data, or other eligible products on ZoeFeeds. You do not pay separately for raffle codes — you simply pay the normal price for the airtime or data bundle you\'re buying. <strong class="text-red-400">Warning:</strong> ZoeFeeds does not sell raffle codes or tickets, and anyone claiming to sell them is not authorized by ZoeFeeds. Our aim is to reward and appreciate our customers through a fair and transparent promotional reward program while providing affordable products and services. On any third-party platform, ZoeFeeds codes must be transferred to you as a gift — never sold.'
         ],
         [
           'What is a ZoeFeeds Gift Code (Raffle Ticket)?',
-          'A ZoeFeeds Gift Code is a free 15-digit code you receive after completing an eligible transaction on ZoeFeeds, or one that is gifted to you by another party. You can redeem the code in your ZoeFeeds wallet and use it to enter any available draw of your choice. Each code serves as your unique entry identifier in the draw. If your entry is selected as the winning identifier according to the draw rules, you win the prize.'
+          'A ZoeFeeds Gift Code is a free 15-digit code you receive automatically after buying airtime or data (or completing another eligible transaction) on ZoeFeeds, or one that is gifted to you by another party. The code lands directly in your ZoeFeeds wallet and you can use it to enter any available draw of your choice. Each code serves as your unique entry identifier in the draw. If your entry is selected as the winning identifier according to the draw rules, you win the prize.'
         ],
         [
           'How can I check my raffle codes?',
-          'You can view all your raffle codes in your ZoeFeeds account dashboard after a successful purchase or after you have manually entered and redeemed your raffle code into your ZoeFeeds wallet.'
+          'You can view all your raffle codes in your ZoeFeeds account dashboard immediately after a successful airtime or data purchase, or after you have manually redeemed a gifted raffle code into your ZoeFeeds wallet.'
         ],
         [
           'When will the raffle draw take place?',
@@ -755,7 +756,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         ],
         [
           'Can I get more than one raffle code?',
-          'Yes. Each ticket gift code you receive will earn you additional raffle tickets, increasing your chances of matching the draw.'
+          'Yes. Every airtime or data purchase you make earns you a new raffle code, and any ticket gift code you receive will earn you additional entries too — increasing your chances of matching the draw.'
         ],
         [
           'What prizes can be won?',
@@ -775,11 +776,11 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         ],
         [
           'Is the ZoeFeeds Reward Draw a lottery or gambling scheme?',
-          'No. The ZoeFeeds Reward Draw is a customer appreciation promotion. Raffle codes are provided free as a promotional benefit and are not sold. They must remain free and not for sale — forever.'
+          'No. The ZoeFeeds Reward Draw is a customer appreciation promotion tied to your everyday airtime and data purchases. Raffle codes are provided free as a promotional benefit and are not sold. They must remain free and not for sale — forever.'
         ],
         [
           'Are my chances of winning the same as everyone else\'s?',
-          'Yes. Every valid raffle code you enter into a particular draw has an equal chance of matching with the draw. Entering more codes increases your chances.'
+          'Yes. Every valid raffle code you enter into a particular draw has an equal chance of matching with the draw. Buying more airtime or data — and entering more codes — increases your chances.'
         ],
         [
           'How can I report fraud or suspicious activities?',
@@ -795,7 +796,7 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
         ],
         [
           'How can I verify my raffle codes?',
-          'All valid ZoeFeeds raffle codes must be redeemed through your ZoeFeeds account. Once a code is successfully redeemed, it will appear in your Redeemed Codes Wallet. If a code cannot be redeemed or does not appear in your wallet, contact ZoeFeeds Support for assistance.'
+          'All valid ZoeFeeds raffle codes — whether earned from a purchase or redeemed from a gift — appear in your Redeemed Codes Wallet on your dashboard. If a code from a purchase does not appear in your wallet, or a gifted code cannot be redeemed, contact ZoeFeeds Support for assistance.'
         ],
         [
           'Can I enter a particular draw with more than one raffle ticket code?',
@@ -846,11 +847,11 @@ $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'"
   <section class="py-24 relative overflow-hidden">
     <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse at center,rgba(249,115,22,0.12) 0%,transparent 70%)"></div>
     <div class="max-w-3xl mx-auto px-4 text-center relative z-10">
-      <div class="text-6xl mb-5">🎯</div>
-      <h2 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ready to Start Winning?</h2>
-      <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands of participating in ZoeFeeds' fair and transparent reward draws. Create your free account today.</p>
+      <div class="text-6xl mb-5">📶</div>
+      <h2 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ready to Buy &amp; Start Winning?</h2>
+      <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands buying cheap, long-lasting airtime and data on ZoeFeeds — and getting free raffle codes to win in our fair, transparent draws. Create your free account today.</p>
       <div class="flex flex-wrap gap-4 justify-center">
-        <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">🎟️ Create Free Account</a>
+        <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">📶 Create Free Account</a>
         <a href="<?= APP_URL ?>/user/login.php" class="btn btn-secondary px-10 py-5 text-lg font-bold">🔑 Log In</a>
       </div>
       <div class="text-xs text-gray-600 mt-4">No credit card required · Free forever · Instant setup · Age 18+</div>

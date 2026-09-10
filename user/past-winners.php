@@ -65,6 +65,27 @@ function maskWinnerName(string $n): string {
     return implode(' ', array_map(fn($w) => mb_strlen($w)<=1?$w:mb_substr($w,0,1).str_repeat('*',min(mb_strlen($w)-1,4)), $p));
 }
 
+// ── Build "applied filter" chips (everything except free-text search,
+//    which already shows in the search box itself) ─────────────────
+$monthLabel = $month;
+foreach ($months as $m) { if ($m['ym'] === $month) { $monthLabel = $m['label']; break; } }
+
+$chips = [];
+if ($dateFrom) $chips['date_from'] = 'From ' . date('M j, Y', strtotime($dateFrom));
+if ($dateTo)   $chips['date_to']   = 'To ' . date('M j, Y', strtotime($dateTo));
+if ($month)    $chips['month']     = $monthLabel;
+if ($category) $chips['category']  = $category;
+
+$activeAdvancedCount = count($chips);
+$currentParams = ['q'=>$q, 'date_from'=>$dateFrom, 'date_to'=>$dateTo, 'month'=>$month, 'category'=>$category];
+
+function filterUrl(array $overrides, array $current): string {
+    $p = array_merge($current, $overrides);
+    $p = array_filter($p, fn($v) => $v !== '' && $v !== null);
+    $qs = http_build_query($p);
+    return $qs ? "?$qs" : '?';
+}
+
 $currentPage = 'past-winners';
 $pageTitle   = 'Past Winners';
 ?><!DOCTYPE html>
@@ -88,13 +109,68 @@ $pageTitle   = 'Past Winners';
     .draw-card:hover{border-color:rgba(249,115,22,.35);transform:translateY(-3px);box-shadow:0 14px 36px rgba(0,0,0,.4);}
     .draw-card.my-win{border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.04);}
     .draw-card.my-win:hover{border-color:rgba(234,179,8,.6);box-shadow:0 14px 36px rgba(234,179,8,.12);}
-    .fp-input{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:.5rem .85rem;font-size:.82rem;transition:border-color .2s;}
-    .fp-input:focus{border-color:#f97316;outline:none;}
+
+    /* ── Filter toolbar ─────────────────────────────────── */
+    .filter-toolbar{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:.6rem;
+    }
+    .fp-input{
+      background:transparent;border:none;color:#fff;
+      font-size:.85rem;width:100%;padding:.55rem .25rem;
+    }
+    .fp-input:focus{outline:none;}
     .fp-input::placeholder{color:#6b7280;}
-    input[type="date"].fp-input::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer;}
-    .filter-pill{display:inline-flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:.3rem .85rem;font-size:.73rem;font-weight:600;color:#9ca3af;text-decoration:none;transition:all .2s;white-space:nowrap;cursor:pointer;}
-    .filter-pill:hover{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.3);color:#f97316;}
-    .filter-pill.active{background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:#f97316;}
+    .search-wrap{
+      display:flex;align-items:center;gap:.5rem;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      border-radius:10px;padding:0 .75rem;flex:1;min-width:0;
+    }
+    .search-wrap svg{flex-shrink:0;color:#6b7280;width:16px;height:16px;}
+
+    .filters-btn{
+      display:flex;align-items:center;gap:.4rem;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      color:#d1d5db;border-radius:10px;padding:.55rem .9rem;font-size:.83rem;font-weight:600;
+      cursor:pointer;white-space:nowrap;transition:all .15s;
+    }
+    .filters-btn:hover{border-color:rgba(249,115,22,.35);color:#f97316;}
+    .filters-btn.has-active{border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.1);color:#f97316;}
+    .filters-count{
+      background:#f97316;color:#0a0f1a;font-size:.68rem;font-weight:800;
+      border-radius:100px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 .3rem;
+    }
+
+    #filters-panel{
+      max-height:0;overflow:hidden;opacity:0;
+      transition:max-height .25s ease, opacity .2s ease, margin-top .25s ease;
+    }
+    #filters-panel.open{max-height:400px;opacity:1;margin-top:.6rem;}
+
+    .fp-select{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#fff;padding:.6rem .75rem;font-size:.83rem;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right .6rem center;background-size:16px;
+    }
+    .fp-select:focus{outline:none;border-color:#f97316;}
+    .fp-date{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#fff;padding:.55rem .75rem;font-size:.83rem;
+    }
+    .fp-date:focus{outline:none;border-color:#f97316;}
+    .fp-label{font-size:.7rem;font-weight:600;color:#9ca3af;margin-bottom:.35rem;display:block;}
+
+    .chip{
+      display:inline-flex;align-items:center;gap:.4rem;
+      background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);
+      color:#fdba74;border-radius:100px;padding:.3rem .7rem;font-size:.75rem;font-weight:600;
+      text-decoration:none;
+    }
+    .chip svg{width:12px;height:12px;}
+    .chip:hover{background:rgba(249,115,22,.2);}
   </style>
 </head>
 <body class="bg-[#0a0f1a] text-white">
@@ -121,59 +197,75 @@ $pageTitle   = 'Past Winners';
       </div>
     </div>
 
-    <!-- ── FILTERS ─────────────────────────────────────────── -->
+    <!-- ── FILTER TOOLBAR ──────────────────────────────────── -->
     <form method="GET" id="filter-form" class="mb-5">
+      <div class="filter-toolbar">
+        <div class="flex gap-2">
+          <div class="search-wrap">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+            <input type="text" name="q" class="fp-input" placeholder="Search draw name or category…" value="<?= e($q) ?>">
+          </div>
 
-      <!-- Search -->
-      <div class="flex gap-2 mb-3">
-        <input type="text" name="q" class="fp-input flex-1"
-               placeholder="Search draw name or category…" value="<?= e($q) ?>">
-        <input type="hidden" name="month"    id="month-input"    value="<?= e($month) ?>">
-        <input type="hidden" name="category" id="cat-input"      value="<?= e($category) ?>">
-        <button type="submit" class="btn btn-primary px-5 text-sm">Search</button>
-        <?php if ($q||$dateFrom||$dateTo||$month||$category): ?>
-        <a href="<?= APP_URL ?>/user/past-winners.php" class="btn btn-secondary px-4 text-sm">Clear</a>
-        <?php endif; ?>
+          <button type="button" id="filters-toggle" class="filters-btn <?= $activeAdvancedCount ? 'has-active' : '' ?>">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M9 12h6M11 16h2"/></svg>
+            Filters
+            <?php if ($activeAdvancedCount): ?><span class="filters-count"><?= $activeAdvancedCount ?></span><?php endif; ?>
+          </button>
+
+          <button type="submit" class="btn btn-primary px-4 text-sm">Search</button>
+        </div>
+
+        <!-- Advanced filters, collapsed by default -->
+        <div id="filters-panel">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+            <div>
+              <label class="fp-label">From date</label>
+              <input type="date" name="date_from" class="fp-date" value="<?= e($dateFrom) ?>" onchange="document.querySelector('[name=month]').value=''">
+            </div>
+            <div>
+              <label class="fp-label">To date</label>
+              <input type="date" name="date_to" class="fp-date" value="<?= e($dateTo) ?>" onchange="document.querySelector('[name=month]').value=''">
+            </div>
+            <div>
+              <label class="fp-label">Month</label>
+              <select name="month" class="fp-select " onchange="if(this.value){document.querySelector('[name=date_from]').value='';document.querySelector('[name=date_to]').value='';}">
+                <option value="">Any month</option>
+                <?php foreach ($months as $m): ?>
+                <option class="text-black" value="<?= e($m['ym']) ?>" <?= $month===$m['ym']?'selected':'' ?>><?= e($m['label']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div>
+              <label class="fp-label">Category</label>
+              <select name="category" class="fp-select">
+                <option value="">Any category</option>
+                <?php foreach ($cats as $c): ?>
+                <option class="text-black" value="<?= e($c) ?>" <?= $category===$c?'selected':'' ?>><?= e($c) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-3">
+            <a href="<?= APP_URL ?>/user/past-winners.php" class="btn btn-secondary btn-sm text-xs">Reset all</a>
+            <button type="submit" class="btn btn-primary btn-sm text-xs">Apply filters</button>
+          </div>
+        </div>
       </div>
 
-      <!-- Date range -->
-      <div class="flex flex-wrap gap-2 items-center mb-3">
-        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider">Date:</span>
-        <input type="date" name="date_from" class="fp-input" value="<?= e($dateFrom) ?>"
-               onchange="document.getElementById('month-input').value='';this.form.submit()">
-        <span class="text-gray-600 text-xs">to</span>
-        <input type="date" name="date_to"   class="fp-input" value="<?= e($dateTo) ?>"
-               onchange="document.getElementById('month-input').value='';this.form.submit()">
-      </div>
-
-      <!-- Month quick-pills -->
-      <?php if ($months): ?>
-      <div class="flex flex-wrap gap-1.5 mb-3">
-        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider self-center">Month:</span>
-        <span onclick="setMonth('')"
-              class="filter-pill <?= !$month?'active':'' ?>">All</span>
-        <?php foreach ($months as $m): ?>
-        <span onclick="setMonth('<?= e($m['ym']) ?>')"
-              class="filter-pill <?= $month===$m['ym']?'active':'' ?>">
-          <?= e($m['label']) ?>
-        </span>
+      <!-- Applied filter chips -->
+      <?php if ($chips): ?>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <?php foreach ($chips as $key => $label): ?>
+        <a href="<?= filterUrl([$key => ''], $currentParams) ?>" class="chip">
+          <?= e($label) ?>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </a>
         <?php endforeach; ?>
+        <a href="<?= APP_URL ?>/user/past-winners.php" class="chip" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:#9ca3af">
+          Clear all
+        </a>
       </div>
       <?php endif; ?>
-
-      <!-- Category pills -->
-      <?php if ($cats): ?>
-      <div class="flex flex-wrap gap-1.5">
-        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider self-center">Category:</span>
-        <span onclick="setCat('')"
-              class="filter-pill <?= !$category?'active':'' ?>">All</span>
-        <?php foreach ($cats as $c): ?>
-        <span onclick="setCat('<?= e(addslashes($c)) ?>')"
-              class="filter-pill <?= $category===$c?'active':'' ?>"><?= e($c) ?></span>
-        <?php endforeach; ?>
-      </div>
-      <?php endif; ?>
-
     </form>
 
     <!-- ── DRAW CARDS ──────────────────────────────────────── -->
@@ -274,16 +366,17 @@ $pageTitle   = 'Past Winners';
 
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
-function setMonth(val) {
-  document.getElementById('month-input').value = val;
-  document.querySelector('[name="date_from"]').value = '';
-  document.querySelector('[name="date_to"]').value   = '';
-  document.getElementById('filter-form').submit();
-}
-function setCat(val) {
-  document.getElementById('cat-input').value = val;
-  document.getElementById('filter-form').submit();
-}
+  var toggleBtn   = document.getElementById('filters-toggle');
+  var panel       = document.getElementById('filters-panel');
+  var hasActive   = <?= $activeAdvancedCount ? 'true' : 'false' ?>;
+
+  // Auto-open the panel if an advanced filter is already applied,
+  // so the user immediately sees what's filtering their results.
+  if (hasActive) panel.classList.add('open');
+
+  toggleBtn.addEventListener('click', function () {
+    panel.classList.toggle('open');
+  });
 </script>
 </body>
 </html>

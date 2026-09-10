@@ -1,15 +1,17 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../lib/paystack.php';
 $auth = requireUser();
 $userId = $auth['id'];
 $db = getDB();
 
 // Fetch user data
-$user = $db->prepare("SELECT * FROM users WHERE id = ?")->execute([$userId]) ? null : null;
 $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
+
+$walletBalance = (int) ($user['wallet_balance'] ?? 0);
 
 // Stats
 $totalCodes   = $db->prepare("SELECT COUNT(*) FROM codes WHERE current_owner = ? AND status NOT IN ('used')");
@@ -26,6 +28,15 @@ $usedInDraws->execute([$userId]); $usedInDraws = $usedInDraws->fetchColumn();
 $totalWins    = $db->prepare("SELECT COUNT(*) FROM draw_winners WHERE user_id = ?");
 $totalWins->execute([$userId]); $totalWins = $totalWins->fetchColumn();
 
+// Wallet / deposit stats
+$depositStats = $db->prepare("SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total FROM deposits WHERE user_id = ? AND status = 'success'");
+$depositStats->execute([$userId]);
+$depositStats = $depositStats->fetch();
+
+$recentDeposits = $db->prepare("SELECT * FROM deposits WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
+$recentDeposits->execute([$userId]);
+$recentDeposits = $recentDeposits->fetchAll();
+
 // Active draws
 $draws = $db->prepare("SELECT * FROM draws WHERE status = 'active' ORDER BY end_date ASC LIMIT 4");
 $draws->execute(); $draws = $draws->fetchAll();
@@ -36,6 +47,10 @@ $txns->execute([$userId]); $txns = $txns->fetchAll();
 
 $currentPage = 'dashboard';
 $pageTitle = 'Dashboard';
+
+$flashType = $_SESSION['flash_type'] ?? null;
+$flashMsg  = $_SESSION['flash_msg'] ?? null;
+unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -67,7 +82,54 @@ $pageTitle = 'Dashboard';
   </div>
 
   <div class="p-6">
-    <!-- Balance Card -->
+
+    <?php if ($flashMsg): ?>
+    <div class="mb-6 rounded-xl p-4 text-sm border <?= $flashType === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300' ?>">
+      <?= e($flashMsg) ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- Wallet Balance Card -->
+    <div class="mb-6 rounded-2xl p-6 fade-in" style="background:linear-gradient(135deg,#0f766e,#0a3d3a)">
+      <div class="flex items-start justify-between mb-4">
+        <div>
+          <div class="text-sm text-emerald-200 font-medium">Wallet Balance</div>
+          <div class="flex items-center gap-3 mt-2">
+            <div class="text-4xl font-display font-bold"><?= formatNaira($walletBalance) ?></div>
+          </div>
+          <div class="text-sm text-emerald-200 mt-1">Available for airtime & data purchase</div>
+        </div>
+        <div class="bg-white/10 rounded-xl p-3">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 12v-2m9-4a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <a href="<?= APP_URL ?>/user/deposit.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Deposit
+        </a>
+        <a href="<?= APP_URL ?>/user/wallet-history.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">Wallet History</a>
+      </div>
+    </div>
+
+    <!-- Wallet detail cards: deposits, orders, etc -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold font-display text-emerald-400"><?= formatNaira($depositStats['total'] ?? 0) ?></div>
+        <div class="text-xs text-gray-400 mt-1">Total Deposited</div>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold font-display text-blue-400"><?= (int) ($depositStats['cnt'] ?? 0) ?></div>
+        <div class="text-xs text-gray-400 mt-1">Successful Deposits</div>
+      </div>
+      <div class="card p-4 text-center relative">
+        <div class="text-2xl font-bold font-display text-gray-500">0</div>
+        <div class="text-xs text-gray-400 mt-1">Orders</div>
+        <span class="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-gray-400">Soon</span>
+      </div>
+    </div>
+
+    <!-- Raffle Code Balance Card -->
     <div class="balance-card mb-6 fade-in">
       <div class="flex items-start justify-between mb-4">
         <div>
@@ -133,6 +195,40 @@ $pageTitle = 'Dashboard';
       </div>
     </div>
     <?php endif; ?>
+
+    <!-- Recent Deposits -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold">Recent Deposits</h2>
+        <a href="<?= APP_URL ?>/user/deposit.php" class="text-sm text-orange-400 hover:underline">Deposit more →</a>
+      </div>
+      <div class="card">
+        <?php if ($recentDeposits): ?>
+          <?php foreach ($recentDeposits as $d): ?>
+          <?php
+            $badgeClass = match($d['status']) {
+              'success' => 'badge-success',
+              'pending' => 'badge-warning',
+              default   => 'badge-danger',
+            };
+          ?>
+          <div class="flex items-center gap-4 p-4 border-b border-white/5 last:border-0">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-lg">💳</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium"><?= formatNaira($d['amount']) ?></div>
+              <div class="text-xs text-gray-400 font-mono"><?= e($d['reference']) ?></div>
+            </div>
+            <div class="text-right">
+              <span class="badge <?= $badgeClass ?>"><?= e(ucfirst($d['status'])) ?></span>
+              <div class="text-xs text-gray-500 mt-1"><?= date('M j, g:ia', strtotime($d['created_at'])) ?></div>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <div class="p-8 text-center text-gray-500">No deposits yet — <a href="<?= APP_URL ?>/user/deposit.php" class="text-orange-400 hover:underline">fund your wallet</a></div>
+        <?php endif; ?>
+      </div>
+    </div>
 
     <!-- Recent Transactions -->
     <div>

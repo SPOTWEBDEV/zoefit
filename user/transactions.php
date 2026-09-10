@@ -46,12 +46,32 @@ $creditS->execute($params); $totalCredits = $creditS->fetchColumn();
 $debitS = $db->prepare("SELECT COALESCE(SUM(ABS(amount)),0) FROM transactions t LEFT JOIN codes c ON t.code_id=c.id WHERE $where AND t.type='debit'");
 $debitS->execute($params); $totalDebits = $debitS->fetchColumn();
 
-// Category counts
+// Category counts + labels
+$catLabels=['all'=>'All Categories','redemption'=>'Redemption','transfer_in'=>'Transfer In','transfer_out'=>'Transfer Out',
+  'draw_entry'=>'Draw Entry','vendor_credit'=>'Vendor Credit','draw_deduction'=>'Draw Deduction'];
 $catCounts=[];
 foreach($allowedCats as $c){
   if($c==='all') continue;
   $s=$db->prepare("SELECT COUNT(*) FROM transactions WHERE user_id=? AND category=?");
   $s->execute([$userId,$c]); $catCounts[$c]=(int)$s->fetchColumn();
+}
+
+// ── Applied filter chips (everything except free-text search) ──────
+$typeLabels = ['credit'=>'+ Credits','debit'=>'- Debits'];
+$chips = [];
+if ($type !== 'all')     $chips['type'] = $typeLabels[$type] ?? $type;
+if ($category !== 'all') $chips['cat']  = $catLabels[$category] ?? ucwords(str_replace('_',' ',$category));
+if ($dateFrom)            $chips['from'] = 'From ' . date('M j, Y', strtotime($dateFrom));
+if ($dateTo)               $chips['to']   = 'To ' . date('M j, Y', strtotime($dateTo));
+
+$activeAdvancedCount = count($chips);
+$currentParams = ['q'=>$search,'type'=>$type,'cat'=>$category,'from'=>$dateFrom,'to'=>$dateTo];
+
+function filterUrl(array $overrides, array $current): string {
+    $p = array_merge($current, $overrides);
+    $p = array_filter($p, fn($v) => $v !== '' && $v !== null && $v !== 'all');
+    $qs = http_build_query($p);
+    return $qs ? "?$qs" : '?';
 }
 
 $currentPage='transactions'; $pageTitle='Transaction History';
@@ -66,11 +86,70 @@ $currentPage='transactions'; $pageTitle='Transaction History';
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
   <style>
     *{font-family:'Poppins',sans-serif!important}
-    .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.08);cursor:pointer;transition:all .2s;text-decoration:none;white-space:nowrap;}
-    .chip:hover{border-color:rgba(249,115,22,.4);color:#f97316;}
-    .chip.active{background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.5);color:#f97316;}
     .txn-row{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:border-color .2s;}
     .txn-row:hover{border-color:rgba(249,115,22,.2);}
+
+    /* ── Filter toolbar ─────────────────────────────────── */
+    .filter-toolbar{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:.6rem;
+    }
+    .fp-input{
+      background:transparent;border:none;color:#fff;
+      font-size:.85rem;width:100%;padding:.55rem .25rem;
+    }
+    .fp-input:focus{outline:none;}
+    .fp-input::placeholder{color:#6b7280;}
+    .search-wrap{
+      display:flex;align-items:center;gap:.5rem;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      border-radius:10px;padding:0 .75rem;flex:1;min-width:0;
+    }
+    .search-wrap svg{flex-shrink:0;color:#6b7280;width:16px;height:16px;}
+
+    .filters-btn{
+      display:flex;align-items:center;gap:.4rem;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      color:#d1d5db;border-radius:10px;padding:.55rem .9rem;font-size:.83rem;font-weight:600;
+      cursor:pointer;white-space:nowrap;transition:all .15s;
+    }
+    .filters-btn:hover{border-color:rgba(249,115,22,.35);color:#f97316;}
+    .filters-btn.has-active{border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.1);color:#f97316;}
+    .filters-count{
+      background:#f97316;color:#0a0f1a;font-size:.68rem;font-weight:800;
+      border-radius:100px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 .3rem;
+    }
+
+    #filters-panel{
+      max-height:0;overflow:hidden;opacity:0;
+      transition:max-height .25s ease, opacity .2s ease, margin-top .25s ease;
+    }
+    #filters-panel.open{max-height:400px;opacity:1;margin-top:.6rem;}
+
+    .fp-select{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#fff;padding:.6rem .75rem;font-size:.83rem;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right .6rem center;background-size:16px;
+    }
+    .fp-select:focus{outline:none;border-color:#f97316;}
+    .fp-date{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#fff;padding:.55rem .75rem;font-size:.83rem;
+    }
+    .fp-date:focus{outline:none;border-color:#f97316;}
+    .fp-label{font-size:.7rem;font-weight:600;color:#9ca3af;margin-bottom:.35rem;display:block;}
+
+    .chip{
+      display:inline-flex;align-items:center;gap:.4rem;
+      background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);
+      color:#fdba74;border-radius:100px;padding:.3rem .7rem;font-size:.75rem;font-weight:600;
+      text-decoration:none;
+    }
+    .chip svg{width:12px;height:12px;}
+    .chip:hover{background:rgba(249,115,22,.2);}
   </style>
 </head>
 <body class="bg-[#0a0f1a] text-white">
@@ -100,62 +179,75 @@ $currentPage='transactions'; $pageTitle='Transaction History';
       </div>
     </div>
 
-    <!-- ── Filter Form ──────────────────────────────────── -->
-    <form method="GET" class="card p-4 mb-5 space-y-4">
+    <!-- ── FILTER TOOLBAR ──────────────────────────────────── -->
+    <form method="GET" id="filter-form" class="mb-5">
+      <div class="filter-toolbar">
+        <div class="flex gap-2">
+          <div class="search-wrap">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+            <input type="text" name="q" class="fp-input" placeholder="Search code, description…" value="<?= e($search) ?>">
+          </div>
 
-      <!-- Search -->
-      <div class="flex gap-2">
-        <div class="relative flex-1">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          <input type="text" name="q" class="form-control pl-9" placeholder="Search code, description…" value="<?= e($search) ?>">
+          <button type="button" id="filters-toggle" class="filters-btn <?= $activeAdvancedCount ? 'has-active' : '' ?>">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M9 12h6M11 16h2"/></svg>
+            Filters
+            <?php if ($activeAdvancedCount): ?><span class="filters-count"><?= $activeAdvancedCount ?></span><?php endif; ?>
+          </button>
+
+          <button type="submit" class="btn btn-primary px-4 text-sm flex-shrink-0">Search</button>
         </div>
-        <button class="btn btn-primary px-5 flex-shrink-0">Search</button>
-        <?php if($search||$type!=='all'||$category!=='all'||$dateFrom||$dateTo): ?>
-        <a href="?" class="btn btn-secondary px-4 flex-shrink-0">Clear</a>
-        <?php endif; ?>
+
+        <!-- Advanced filters, collapsed by default -->
+        <div id="filters-panel">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+            <div>
+              <label class="fp-label">From date</label>
+              <input type="date" name="from" class="fp-date" value="<?= e($dateFrom) ?>">
+            </div>
+            <div>
+              <label class="fp-label">To date</label>
+              <input type="date" name="to" class="fp-date" value="<?= e($dateTo) ?>">
+            </div>
+            <div>
+              <label class="fp-label">Type</label>
+              <select name="type" class="fp-select">
+                <option class="text-black"  value="all" <?= $type==='all'?'selected':'' ?>>All Types</option>
+                <option  class="text-black" value="credit" <?= $type==='credit'?'selected':'' ?>>+ Credits</option>
+                <option class="text-black"  value="debit" <?= $type==='debit'?'selected':'' ?>>- Debits</option>
+              </select>
+            </div>
+            <div>
+              <label class="fp-label">Category</label>
+              <select name="cat" class="fp-select">
+                <?php foreach ($catLabels as $v => $l):
+                  $cnt = $v==='all' ? array_sum($catCounts) : ($catCounts[$v]??0);
+                ?>
+                <option class="text-black" value="<?= $v ?>" <?= $category===$v?'selected':'' ?>><?= e($l) ?><?= $v!=='all' ? " ($cnt)" : '' ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-3">
+            <a href="<?= APP_URL ?>/user/transactions.php" class="btn btn-secondary btn-sm text-xs">Reset all</a>
+            <button type="submit" class="btn btn-primary btn-sm text-xs">Apply filters</button>
+          </div>
+        </div>
       </div>
 
-      <!-- Date range -->
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="form-label">From Date</label>
-          <input type="date" name="from" class="form-control" value="<?= e($dateFrom) ?>">
-        </div>
-        <div>
-          <label class="form-label">To Date</label>
-          <input type="date" name="to" class="form-control" value="<?= e($dateTo) ?>">
-        </div>
+      <!-- Applied filter chips -->
+      <?php if ($chips): ?>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <?php foreach ($chips as $key => $label): ?>
+        <a href="<?= filterUrl([$key => ($key==='type'||$key==='cat') ? 'all' : ''], $currentParams) ?>" class="chip">
+          <?= e($label) ?>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </a>
+        <?php endforeach; ?>
+        <a href="<?= APP_URL ?>/user/transactions.php" class="chip" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);color:#9ca3af">
+          Clear all
+        </a>
       </div>
-
-      <!-- Type: Credit / Debit -->
-      <div>
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Transaction Type</div>
-        <div class="flex gap-2 flex-wrap">
-          <?php foreach(['all'=>'All Types','credit'=>'+ Credits','debit'=>'- Debits'] as $v=>$l): ?>
-          <a href="?<?= http_build_query(['type'=>$v,'cat'=>$category,'from'=>$dateFrom,'to'=>$dateTo,'q'=>$search]) ?>"
-             class="chip <?= $type===$v?'active':'' ?>"><?= $l ?></a>
-          <?php endforeach; ?>
-        </div>
-      </div>
-
-      <!-- Category chips -->
-      <div>
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Category</div>
-        <div class="flex gap-2 flex-wrap">
-          <?php $catLabels=['all'=>'All','redemption'=>'🎟️ Redemption','transfer_in'=>'⬇️ Transfer In','transfer_out'=>'⬆️ Transfer Out',
-            'draw_entry'=>'🎯 Draw Entry','vendor_credit'=>'🏪 Vendor Credit','draw_deduction'=>'❌ Draw Deduction'];
-          foreach($catLabels as $v=>$l):
-            $cnt = $v==='all' ? array_sum($catCounts) : ($catCounts[$v]??0);
-          ?>
-          <a href="?<?= http_build_query(['type'=>$type,'cat'=>$v,'from'=>$dateFrom,'to'=>$dateTo,'q'=>$search]) ?>"
-             class="chip <?= $category===$v?'active':'' ?>">
-            <?= $l ?>
-            <?php if($cnt>0): ?><span class="bg-white/10 rounded-full px-1.5 text-xs"><?= $cnt ?></span><?php endif; ?>
-          </a>
-          <?php endforeach; ?>
-        </div>
-      </div>
-
+      <?php endif; ?>
     </form>
 
     <!-- ── Transactions List ────────────────────────────── -->
@@ -220,4 +312,17 @@ $currentPage='transactions'; $pageTitle='Transaction History';
   window.APP_URL = '<?= APP_URL ?>';
 </script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+<script>
+  var toggleBtn = document.getElementById('filters-toggle');
+  var panel     = document.getElementById('filters-panel');
+  var hasActive = <?= $activeAdvancedCount ? 'true' : 'false' ?>;
+
+  // Auto-open the panel if an advanced filter is already applied,
+  // so the user immediately sees what's filtering their results.
+  if (hasActive) panel.classList.add('open');
+
+  toggleBtn.addEventListener('click', function () {
+    panel.classList.toggle('open');
+  });
+</script>
 </body></html>
