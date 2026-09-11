@@ -33,7 +33,8 @@ function zf_detect_env(): string {
     return $isHttps ? 'production' : 'local';
 }
 
-$ZF_ENV = zf_detect_env();
+// DEFINE AS A CONSTANT SO IT CAN BE ACCESSED INSIDE FUNCTIONS
+define('ZF_ENV', zf_detect_env());
 
 // -----------------------------------------------------------
 // DEFINE CONSTANTS DIRECTLY FROM .ENV (WITH FALLBACKS)
