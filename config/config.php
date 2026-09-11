@@ -1,22 +1,26 @@
 <?php
-// 1. Load Composer Autoloader
-require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/database.php';
 
-// 2. Load .env file safely
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+// 1. Load Composer autoloader once from the root directory (zoofeeds/vendor)
+require_once dirname(__DIR__) . '/vendors/autoload.php';
+
+// 2. Load .env safely from the root directory (zoofeeds/.env)
+$dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
 $dotenv->safeLoad();
 
-// 3. Define Environment Constants
-define('ZF_ENV', $_ENV['APP_ENV'] ?? 'production');
+// 3. Include Database connection file
+require_once __DIR__ . '/database.php';
+
+// 4. Define Environment Constants (fallback to $_SERVER then $_ENV)
+$appEnv = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? 'production';
+define('ZF_ENV', $appEnv);
 define('APP_NAME', 'ZoeFeeds');
 define('APP_VERSION', '1.0.0');
 define('APP_TAGLINE', 'Loyalty Reward Platform');
 
-// 4. Load Paystack Credentials & URLs from .env
-define('PAYSTACK_SECRET_KEY', $_ENV['PAYSTACK_SECRET_KEY'] ?? '');
-define('PAYSTACK_PUBLIC_KEY', $_ENV['PAYSTACK_PUBLIC_KEY'] ?? '');
-define('PAYSTACK_BASE_URL',   $_ENV['PAYSTACK_BASE_URL'] ?? 'https://api.paystack.co');
+// 5. Load Paystack Credentials & URLs from .env / $_SERVER
+define('PAYSTACK_SECRET_KEY', $_SERVER['PAYSTACK_SECRET_KEY'] ?? $_ENV['PAYSTACK_SECRET_KEY'] ?? '');
+define('PAYSTACK_PUBLIC_KEY', $_SERVER['PAYSTACK_PUBLIC_KEY'] ?? $_ENV['PAYSTACK_PUBLIC_KEY'] ?? '');
+define('PAYSTACK_BASE_URL',   $_SERVER['PAYSTACK_BASE_URL']   ?? $_ENV['PAYSTACK_BASE_URL']   ?? 'https://api.paystack.co');
 
 function zf_build_app_url(): string {
   if (!empty($_ENV['APP_URL'])) {
