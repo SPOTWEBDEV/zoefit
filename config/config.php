@@ -22,6 +22,10 @@ define('PAYSTACK_SECRET_KEY', $_SERVER['PAYSTACK_SECRET_KEY'] ?? $_ENV['PAYSTACK
 define('PAYSTACK_PUBLIC_KEY', $_SERVER['PAYSTACK_PUBLIC_KEY'] ?? $_ENV['PAYSTACK_PUBLIC_KEY'] ?? '');
 define('PAYSTACK_BASE_URL',   $_SERVER['PAYSTACK_BASE_URL']   ?? $_ENV['PAYSTACK_BASE_URL']   ?? 'https://api.paystack.co');
 
+// 5b. Load ePins (VTU airtime/data) credentials from .env / $_SERVER
+define('EPINS_API_KEY',  $_SERVER['EPINS_API_KEY']  ?? $_ENV['EPINS_API_KEY']  ?? '');
+define('EPINS_BASE_URL', $_SERVER['EPINS_BASE_URL'] ?? $_ENV['EPINS_BASE_URL'] ?? 'https://api.epins.com.ng/v2');
+
 function zf_build_app_url(): string {
   if (!empty($_ENV['APP_URL'])) {
       return rtrim($_ENV['APP_URL'], '/');
@@ -59,7 +63,11 @@ function startAppSession(): void {
   if (session_status() === PHP_SESSION_NONE) {
     session_name(SESSION_NAME);
     session_set_cookie_params([
-      'lifetime'=>SESSION_LIFETIME,'path'=>'/','secure'=>COOKIE_SECURE,'httponly'=>true,'samesite'=>'Strict',
+      // 'Lax' (not 'Strict') is required so the session cookie still gets
+      // sent when Paystack (or any external gateway) redirects the browser
+      // back to us — that's a cross-site top-level GET navigation, which
+      // 'Strict' blocks entirely, silently logging the user out mid-flow.
+      'lifetime'=>SESSION_LIFETIME,'path'=>'/','secure'=>COOKIE_SECURE,'httponly'=>true,'samesite'=>'Lax',
     ]);
     session_start();
   }
