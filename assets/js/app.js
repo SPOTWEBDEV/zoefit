@@ -156,6 +156,7 @@ const ZF = {
 
   async get(url, params = {}) {
     const qs = new URLSearchParams(params).toString();
+    console.log(`Fetching: ${url}?${qs}`);
     const resp = await fetch(`${url}?${qs}`, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     });

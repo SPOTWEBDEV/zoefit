@@ -1,57 +1,55 @@
 <?php
 /**
- * VTU (airtime/data) provider integration — ePins (https://epins.com.ng)
+ * VTU (airtime/data) provider integration — InstantMobile
+ * Docs: https://instantmobile.com.ng/api-docs.php
  *
- * Docs referenced:
- *  - Airtime: POST {{baseurl}}/airtime/   body: {network, phone, amount, ref}
- *  - Data:    POST {{baseurl}}/data/      body: {networkId, MobileNumber, DataPlan, ref}
- *  - Data plan list: GET {{baseurl}}/autho/variations/?service=data
+ * Config required (config/config.php or .env):
+ *   INSTANTMOBILE_API_KEY   = your API key (Profile > API, needs the API plan)
+ *   INSTANTMOBILE_BASE_URL  = optional, defaults to https://instantmobile.com.ng/api/v1.php
+ * Profit rules (data tiers, per-plan overrides, airtime %) are NOT config constants any more:
+ *   admins edit them at admin/pricing.php (stored in site_settings).
  *
- * Config required in .env (see config/config.php for how these are read):
- *   EPINS_API_KEY   = your bearer token
- *   EPINS_BASE_URL  = https://api.epins.com.ng/v2   (live)
- *                     — set to ePins' sandbox base URL instead while testing,
- *                       if they've given you one; it wasn't included in the
- *                       docs you shared, so confirm it with ePins directly.
+ * Every dispatch function returns:
+ *   success            bool    delivered, confirmed by provider
+ *   pending            bool    OUTCOME UNKNOWN (timeout / 5xx / garbled reply). Do NOT refund,
+ *                              do NOT retry. Leave the order 'pending' and reconcile manually.
+ *   message            string  safe to show to the user
+ *   provider, provider_reference, raw
+ *
+ * success=false AND pending=false means the provider definitely did not deliver -> safe to refund.
  */
 
 require_once __DIR__ . '/../config/config.php';
 
-// -----------------------------------------------------------
-// Network name mapping
-// -----------------------------------------------------------
-// Airtime endpoint wants: mtn, airtel, glo, etisalat
-const EPINS_AIRTIME_NETWORK_MAP = [
-    'mtn'     => 'mtn',
-    'airtel'  => 'airtel',
-    'glo'     => 'glo',
-    '9mobile' => 'etisalat',
-];
+if (!defined('INSTANTMOBILE_BASE_URL')) define('INSTANTMOBILE_BASE_URL', 'https://instantmobile.com.ng/api/v1.php');
+// Your profit rules live in the database and are edited by admins at admin/pricing.php
+// (defaults + loader are in lib/settings.php).
+require_once __DIR__ . '/settings.php';
 
-// Data endpoint wants a numeric networkId instead of a name
-const EPINS_DATA_NETWORK_ID_MAP = [
-    'mtn'     => '01',
-    'glo'     => '02',
-    '9mobile' => '03',
-    'airtel'  => '04',
-];
+define('IM_PLANS_CACHE_FILE', __DIR__ . '/../storage/cache/instantmobile_data_plans.json');
+define('IM_PLANS_CACHE_TTL', 15 * 60); // plan IDs can change, so keep this short
 
 // -----------------------------------------------------------
-// Low-level HTTP helper
+// Low-level HTTP
 // -----------------------------------------------------------
-function epinsCurl(string $url, string $method = 'GET', ?array $payload = null): array {
-    $ch = curl_init($url);
+function imRequest(string $action, string $method = 'GET', ?array $payload = null): array {
+    if (!defined('INSTANTMOBILE_API_KEY') || INSTANTMOBILE_API_KEY === '') {
+        error_log('[IM] INSTANTMOBILE_API_KEY is not configured');
+        return ['ok' => false, 'definite' => true, 'http_code' => 0, 'raw' => null, 'error' => 'not configured'];
+    }
 
-    $headers = [
-        'Authorization: Bearer ' . EPINS_API_KEY,
-        'Content-Type: application/json',
-    ];
-
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-
+    $ch = curl_init(INSTANTMOBILE_BASE_URL . '?action=' . urlencode($action));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => [
+            'Authorization: Bearer ' . INSTANTMOBILE_API_KEY,
+            'Accept: application/json',
+            'Content-Type: application/json',
+        ],
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT        => 45,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
     if ($method === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload ?? []));
@@ -60,231 +58,230 @@ function epinsCurl(string $url, string $method = 'GET', ?array $payload = null):
     $response = curl_exec($ch);
     $errNo    = curl_errno($ch);
     $errMsg   = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
     if ($errNo) {
-        error_log("[EPINS] cURL error calling $url: $errMsg");
-        return ['ok' => false, 'http_code' => 0, 'raw' => null, 'error' => "Connection error: $errMsg"];
+        error_log("[IM] cURL error on action=$action: $errMsg");
+        // Couldn't even reach the server => nothing was bought. Anything else (timeout, reset
+        // mid-response) is ambiguous: the purchase may have gone through.
+        $definite = in_array($errNo, [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT], true);
+        return ['ok' => false, 'definite' => $definite, 'http_code' => 0, 'raw' => null, 'error' => $errMsg];
     }
 
-    $decoded = json_decode($response, true);
+    $decoded = json_decode((string) $response, true);
     if (!is_array($decoded)) {
-        error_log("[EPINS] Non-JSON response from $url (HTTP $httpCode): " . substr((string)$response, 0, 500));
-        return ['ok' => false, 'http_code' => $httpCode, 'raw' => $response, 'error' => 'Invalid response from provider'];
+        error_log("[IM] Non-JSON reply on action=$action (HTTP $httpCode): " . substr((string) $response, 0, 300));
+        return ['ok' => false, 'definite' => ($httpCode >= 400 && $httpCode < 500), 'http_code' => $httpCode,
+                'raw' => $response, 'error' => 'invalid response'];
     }
 
     return ['ok' => true, 'http_code' => $httpCode, 'raw' => $response, 'data' => $decoded];
 }
 
-/**
- * ePins responses follow {"code":101,"description":{...or string...}}.
- * 101 = success, based on the sample in their docs. Anything else is
- * treated as failure. If you find other success codes in testing
- * (e.g. sometimes providers use 100 AND 101), add them to this list.
- */
-function epinsIsSuccessCode($code): bool {
-    return in_array((int) $code, [101], true);
+/** Turn a raw purchase response into our standard result shape. */
+function imInterpretPurchase(array $r, string $reference): array {
+    $out = [
+        'success' => false, 'pending' => false, 'message' => '',
+        'provider' => 'instantmobile', 'provider_reference' => null, 'raw' => $r['raw'] ?? null,
+    ];
+
+    $unconfirmedMsg = 'We could not confirm your order yet. Please do not retry — check your order history shortly, '
+                    . 'or contact support with your reference.';
+
+    if (!$r['ok']) {
+        if ($r['definite']) {
+            $out['message'] = 'Service is temporarily unavailable. Please try again shortly.';
+        } else {
+            $out['pending'] = true;
+            $out['message'] = $unconfirmedMsg;
+        }
+        return $out;
+    }
+
+    $http   = $r['http_code'];
+    $d      = $r['data'];
+    $status = $d['status'] ?? null;
+    $msg    = trim((string) ($d['message'] ?? ''));
+
+    if ($http === 200 && $status === 'success') {
+        $out['success']            = true;
+        $out['message']            = $msg !== '' ? $msg : 'Delivered';
+        $out['provider_reference'] = $d['reference'] ?? $reference;
+        return $out;
+    }
+
+    // Server-side trouble or an unrecognised status: outcome unknown.
+    if ($http >= 500 || ($status !== 'error' && $status !== 'success')) {
+        error_log("[IM] Ambiguous purchase outcome (HTTP $http) ref $reference: " . substr((string) $r['raw'], 0, 300));
+        $out['pending'] = true;
+        $out['message'] = $unconfirmedMsg;
+        return $out;
+    }
+
+    // Definite failure. Don't leak OUR wallet/key problems to customers.
+    if (in_array($http, [401, 402, 429], true) || stripos($msg, 'insufficient') !== false) {
+        error_log("[IM] Provider-side failure (HTTP $http) ref $reference: $msg  <-- check API key / provider wallet");
+        $out['message'] = 'Service is temporarily unavailable. Please try again shortly.';
+        return $out;
+    }
+
+    $out['message'] = $msg !== '' ? $msg : 'Purchase failed.';
+    return $out;
 }
 
-function epinsExtractMessage(array $decoded): string {
-    $desc = $decoded['description'] ?? null;
-    if (is_array($desc)) {
-        return $desc['response_description'] ?? ($decoded['message'] ?? 'Unknown response from provider');
-    }
-    if (is_string($desc)) {
-        return $desc;
-    }
-    return $decoded['message'] ?? 'Unknown response from provider';
+function imLocalPhone(string $phone): string {
+    // We store 234XXXXXXXXXX; the API wants 0XXXXXXXXXX.
+    return preg_match('/^234(\d{10})$/', $phone, $m) ? '0' . $m[1] : $phone;
 }
 
 // -----------------------------------------------------------
 // Airtime
 // -----------------------------------------------------------
 function dispatchAirtimeOrder(string $network, string $phone, int $amountKobo, string $reference): array {
-    $epinsNetwork = EPINS_AIRTIME_NETWORK_MAP[$network] ?? null;
-    if (!$epinsNetwork) {
-        return [
-            'success' => false, 'message' => 'Unsupported network for airtime purchase.',
-            'provider' => null, 'provider_reference' => null, 'raw' => null,
-        ];
+    if (!in_array($network, ['mtn', 'glo', 'airtel', '9mobile'], true)) {
+        return ['success' => false, 'pending' => false, 'message' => 'Unsupported network for airtime purchase.',
+                'provider' => null, 'provider_reference' => null, 'raw' => null];
+    }
+    if ($amountKobo % 100 !== 0) {
+        return ['success' => false, 'pending' => false, 'message' => 'Please enter a whole-naira amount.',
+                'provider' => null, 'provider_reference' => null, 'raw' => null];
     }
 
-    $amountNaira = round($amountKobo / 100, 2);
-
-    $result = epinsCurl(rtrim(EPINS_BASE_URL, '/') . '/airtime/', 'POST', [
-        'network' => $epinsNetwork,
-        'phone'   => $phone,
-        'amount'  => $amountNaira,
-        'ref'     => $reference,
+    $r = imRequest('airtime', 'POST', [
+        'network'   => $network,
+        'phone'     => imLocalPhone($phone),
+        'amount'    => intdiv($amountKobo, 100),
+        'reference' => $reference,
     ]);
 
-    if (!$result['ok']) {
-        return [
-            'success' => false, 'message' => $result['error'],
-            'provider' => 'epins', 'provider_reference' => null, 'raw' => $result['raw'],
-        ];
-    }
-
-    $decoded = $result['data'];
-    $success = isset($decoded['code']) && epinsIsSuccessCode($decoded['code']);
-    $desc    = $decoded['description'] ?? [];
-
-    return [
-        'success'            => $success,
-        'message'            => epinsExtractMessage($decoded),
-        'provider'           => 'epins',
-        'provider_reference' => is_array($desc) ? ($desc['ref'] ?? $reference) : $reference,
-        'raw'                => json_encode($decoded),
-    ];
+    return imInterpretPurchase($r, $reference);
 }
 
 // -----------------------------------------------------------
 // Data
 // -----------------------------------------------------------
 function dispatchDataOrder(string $network, string $phone, string $planCode, int $amountKobo, string $reference): array {
-    $networkId = EPINS_DATA_NETWORK_ID_MAP[$network] ?? null;
-    if (!$networkId) {
-        return [
-            'success' => false, 'message' => 'Unsupported network for data purchase.',
-            'provider' => null, 'provider_reference' => null, 'raw' => null,
-        ];
+    if (!in_array($network, ['mtn', 'glo', 'airtel', '9mobile'], true)) {
+        return ['success' => false, 'pending' => false, 'message' => 'Unsupported network for data purchase.',
+                'provider' => null, 'provider_reference' => null, 'raw' => null];
     }
 
-    $result = epinsCurl(rtrim(EPINS_BASE_URL, '/') . '/data/', 'POST', [
-        'networkId'    => $networkId,
-        'MobileNumber' => $phone,
-        'DataPlan'     => $planCode,
-        'ref'          => $reference,
+    $r = imRequest('data', 'POST', [
+        'network'   => $network,
+        'phone'     => imLocalPhone($phone),
+        'plan_id'   => (int) $planCode,
+        'reference' => $reference,
     ]);
 
-    if (!$result['ok']) {
-        return [
-            'success' => false, 'message' => $result['error'],
-            'provider' => 'epins', 'provider_reference' => null, 'raw' => $result['raw'],
-        ];
-    }
-
-    $decoded = $result['data'];
-    $success = isset($decoded['code']) && epinsIsSuccessCode($decoded['code']);
-    $desc    = $decoded['description'] ?? [];
-
-    return [
-        'success'            => $success,
-        'message'            => epinsExtractMessage($decoded),
-        'provider'           => 'epins',
-        'provider_reference' => is_array($desc) ? ($desc['ref'] ?? $reference) : $reference,
-        'raw'                => json_encode($decoded),
-    ];
-}
-
-// -----------------------------------------------------------
-// Data plan catalogue — fetched live from ePins, cached to a file
-// so we're not hitting their API on every single page load.
-//
-// ⚠ The parser below is a BEST-EFFORT guess at field names, since
-// the actual JSON shape of /autho/variations/?service=data wasn't
-// available to verify. Run tools/inspect-epins-variations.php once
-// (see below), check the raw output, and adjust normalizeEpinsVariation()
-// if the field names differ from what's guessed here.
-// -----------------------------------------------------------
-
-define('EPINS_VARIATIONS_CACHE_FILE', __DIR__ . '/../storage/cache/epins_data_variations.json');
-define('EPINS_VARIATIONS_CACHE_TTL', 12 * 3600); // 12 hours
-
-function fetchEpinsDataVariationsRaw(): array {
-    $url = 'https://api.epins.com.ng/v2/autho/variations/?service=data';
-    $result = epinsCurl($url, 'GET');
-
-    if (!$result['ok']) {
-        error_log('[EPINS] Failed to fetch data variations: ' . $result['error']);
-        return [];
-    }
-
-    return $result['data'];
+    return imInterpretPurchase($r, $reference);
 }
 
 /**
- * Normalize one raw variation item into ['code','name','price','network'].
- * GUESSED field names — verify against the real response and adjust.
+ * Your profit (kobo) on an airtime purchase: admin-set % of the face value.
+ * Provider price (cost) = amount charged - profit. Set the % to the discount your
+ * InstantMobile plan really gives you (admin/pricing.php).
  */
-function normalizeEpinsVariation(array $item): ?array {
-    $code = $item['variation_id'] ?? $item['variation_code'] ?? $item['id'] ?? $item['code'] ?? null;
-    $name = $item['name'] ?? $item['variation_name'] ?? $item['plan'] ?? $item['description'] ?? null;
-    $price = $item['variation_amount'] ?? $item['price'] ?? $item['amount'] ?? null;
-    $networkRaw = $item['network'] ?? $item['networkId'] ?? $item['network_id'] ?? null;
-
-    if ($code === null || $name === null || $price === null || $networkRaw === null) {
-        return null; // shape didn't match what we expected — skip rather than guess wrong
-    }
-
-    // networkId (01-04) or a name (mtn/glo/...) — normalize to our internal keys
-    $idToNetwork = array_flip(EPINS_DATA_NETWORK_ID_MAP);
-    $network = $idToNetwork[$networkRaw] ?? strtolower((string) $networkRaw);
-    if ($network === 'etisalat') $network = '9mobile';
-
-    return [
-        'code'    => (string) $code,
-        'name'    => (string) $name,
-        'price'   => (int) round(((float) $price) * 100), // store in kobo, consistent with rest of app
-        'network' => $network,
-    ];
+function airtimeProfitKobo(int $amountKobo): int {
+    return (int) round($amountKobo * getAirtimeProfitPercent() / 100);
 }
 
-function getDataPlans(): array {
-    $cacheFile = EPINS_VARIATIONS_CACHE_FILE;
-    $cacheDir  = dirname($cacheFile);
+// -----------------------------------------------------------
+// Provider wallet balance (for admin low-balance alerts)
+// -----------------------------------------------------------
+function imGetBalanceNaira(): ?float {
+    $r = imRequest('balance');
+    if (!$r['ok'] || ($r['data']['status'] ?? '') !== 'success') return null;
+    return (float) ($r['data']['balance'] ?? 0);
+}
 
-    $fromCache = null;
-    if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < EPINS_VARIATIONS_CACHE_TTL) {
-        $fromCache = json_decode(file_get_contents($cacheFile), true);
-    }
+// -----------------------------------------------------------
+// Data plan catalogue (cached, with your own markup applied on read)
+// -----------------------------------------------------------
+function imNormalizeNetwork($n): string {
+    $n = str_replace([' ', '-', '_'], '', strtolower(trim((string) $n)));
+    return in_array($n, ['etisalat', '9mobile', 'nmobile'], true) ? '9mobile' : $n;
+}
 
-    if ($fromCache === null) {
-        $raw = fetchEpinsDataVariationsRaw();
-
-        // Best-effort: the list of variation items might be at the top level,
-        // or nested under a key like 'data'/'variations'/'description'.
-        $items = $raw['data'] ?? $raw['variations'] ?? $raw['description'] ?? (is_array($raw) && array_is_list($raw) ? $raw : null);
-
-        $plans = [];
-        if (is_array($items)) {
-            foreach ($items as $item) {
-                if (!is_array($item)) continue;
-                $normalized = normalizeEpinsVariation($item);
-                if ($normalized) {
-                    $plans[$normalized['network']][] = [
-                        'code'  => $normalized['code'],
-                        'name'  => $normalized['name'],
-                        'price' => $normalized['price'],
-                    ];
-                }
-            }
-        }
-
-        if ($plans) {
-            if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
-            @file_put_contents($cacheFile, json_encode($plans));
-            return $plans;
-        }
-
-        error_log('[EPINS] Could not parse data variations response — check normalizeEpinsVariation() against the real API shape.');
-
-        // Fall back to stale cache if we have one, rather than showing nothing.
-        if (is_file($cacheFile)) {
-            $stale = json_decode(file_get_contents($cacheFile), true);
-            if (is_array($stale)) return $stale;
-        }
-
+/** Fetch plans from provider -> [network => [ [code,name,type,cost(naira)], ... ]] */
+function imFetchPlans(): array {
+    $r = imRequest('data-plans');
+    if (!$r['ok'] || ($r['data']['status'] ?? '') !== 'success' || !is_array($r['data']['data'] ?? null)) {
+        error_log('[IM] Failed to fetch data plans');
         return [];
     }
 
-    return $fromCache;
+    $plans = [];
+    foreach ($r['data']['data'] as $item) {
+        if (!is_array($item) || !isset($item['id'], $item['network'], $item['name'], $item['price'])) continue;
+        $plans[imNormalizeNetwork($item['network'])][] = [
+            'code' => (string) $item['id'],
+            'name' => (string) $item['name'],
+            'type' => (string) ($item['type'] ?? ''),
+            'cost' => (float) $item['price'],
+        ];
+    }
+    return $plans;
+}
+
+/** Your profit in naira for a plan with this provider price (per-plan override > tier > % above top tier). */
+function imProfitNaira(float $costNaira, string $planCode = ''): float {
+    $cfg = getDataProfitConfig();
+    if ($planCode !== '' && isset($cfg['overrides'][$planCode])) {
+        return $cfg['overrides'][$planCode];
+    }
+    foreach ($cfg['tiers'] as [$upTo, $profit]) {
+        if ($costNaira <= $upTo) return $profit;
+    }
+    return $costNaira * $cfg['percent_above'] / 100;
+}
+
+/** What the USER pays, in kobo: provider price + profit, rounded up to a whole naira. */
+function imSellingPriceKobo(float $costNaira, string $planCode = ''): int {
+    return (int) ceil($costNaira + imProfitNaira($costNaira, $planCode)) * 100;
+}
+
+function getDataPlans(): array {
+    $file = IM_PLANS_CACHE_FILE;
+    $cost = null;
+
+    if (is_file($file) && (time() - filemtime($file)) < IM_PLANS_CACHE_TTL) {
+        $cost = json_decode((string) file_get_contents($file), true);
+    }
+
+    if (!is_array($cost)) {
+        $fresh = imFetchPlans();
+        if ($fresh) {
+            $dir = dirname($file);
+            if (!is_dir($dir)) @mkdir($dir, 0775, true);
+            $tmp = $file . '.' . bin2hex(random_bytes(4)) . '.tmp';
+            if (@file_put_contents($tmp, json_encode($fresh)) !== false) @rename($tmp, $file);
+            $cost = $fresh;
+        } elseif (is_file($file)) {
+            $cost = json_decode((string) file_get_contents($file), true); // stale beats empty
+        }
+    }
+    if (!is_array($cost)) return [];
+
+    $plans = [];
+    foreach ($cost as $network => $list) {
+        foreach ($list as $p) {
+            $plans[$network][] = [
+                'code'  => $p['code'],
+                'name'  => $p['name'],
+                'type'  => $p['type'] ?? '',
+                'price'  => imSellingPriceKobo((float) $p['cost'], $p['code']),  // what the USER pays (cost + profit), kobo
+                'cost'   => (int) round(((float) $p['cost']) * 100),    // what YOU pay the provider, kobo
+                'profit' => imSellingPriceKobo((float) $p['cost'], $p['code']) - (int) round(((float) $p['cost']) * 100),
+            ];
+        }
+        usort($plans[$network], fn($a, $b) => $a['price'] <=> $b['price']);
+    }
+    return $plans;
 }
 
 function getDataPlanByCode(string $network, string $code): ?array {
-    $plans = getDataPlans()[$network] ?? [];
-    foreach ($plans as $p) {
+    foreach ((getDataPlans()[$network] ?? []) as $p) {
         if ($p['code'] === $code) return $p;
     }
     return null;
