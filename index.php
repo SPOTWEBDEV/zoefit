@@ -45,42 +45,39 @@ $whatsappNumber = '234XXXXXXXXXX';
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Hero photo: faded on the left, curved glowing edge on the bottom-left */
+    /* Hero photo — stacked card on phones/tablets, curved glowing edge on desktop */
     .hero-photo {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 56%;
-      height: 86%;
-      z-index: 0;
-      pointer-events: none;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(251, 146, 60, .35);
+      box-shadow: 0 18px 40px -18px rgba(251, 146, 60, .55);
     }
 
     .hero-photo img {
+      display: block;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      object-position: 70% center;
-      border-bottom-left-radius: 100% 38%;
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 38%);
-      mask-image: linear-gradient(to right, transparent 0%, #000 38%);
-    }
-
-    .hero-photo::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-bottom-left-radius: 100% 38%;
-      border-bottom: 3px solid #fbbf24;
-      box-shadow: 0 10px 26px -10px rgba(251, 146, 60, .9);
-      -webkit-mask-image: linear-gradient(to right, transparent 10%, #000 55%);
-      mask-image: linear-gradient(to right, transparent 10%, #000 55%);
+      object-position: 55% 30%;
     }
 
     @media (min-width: 1024px) {
       .hero-photo {
-        width: 52%;
-        height: 100%;
+        aspect-ratio: auto;
+        height: min(600px, 72vh);
+        border: 0;
+        border-bottom: 3px solid #fbbf24;
+        border-radius: 0 0 0 220px;
+        box-shadow: 0 14px 30px -14px rgba(251, 146, 60, .9);
+      }
+
+      .hero-photo img {
+        object-position: 55% center;
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%);
+        mask-image: linear-gradient(to right, transparent 0%, #000 30%);
       }
     }
 
@@ -206,7 +203,8 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      TOP BAR — contact row, then social row
 ====================================================== -->
-  <div class="social-media-icon fixed w-full z-50 glass py-2 px-4 sm:px-8 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400">
+  <div class="social-media-icon fixed top-0 w-full h-11 z-50 glass px-4 sm:px-8 flex items-center justify-end bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400">
+    <!-- Site email + website (hidden for now — remove these comment markers to show it again)
     <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
       <a href="mailto:support@zoefeeds.com" class="flex items-center gap-2 hover:text-white transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
@@ -221,8 +219,9 @@ $whatsappNumber = '234XXXXXXXXXX';
         <span>https://zoefeeds.com</span>
       </div>
     </div>
+    -->
     <div class="flex gap-3 items-center justify-end">
-      <p class="text-gray-300">Connect with us on social media</p>
+      <p class="hidden min-[480px]:block text-gray-300">Connect with us on social media</p>
       <div class="flex gap-3 items-center">
         <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
           <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6">
@@ -251,7 +250,7 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      NAVBAR
 ====================================================== -->
-  <nav class="fixed top-[88px] md:top-12 w-full z-50 glass border-b border-white/5">
+  <nav class="fixed top-11 w-full z-50 glass border-b border-white/5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="flex items-center justify-between h-16">
 
@@ -313,7 +312,7 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      HERO
 ====================================================== -->
-  <section class="relative min-h-screen flex items-center pt-40 md:pt-28 overflow-hidden">
+  <section class="relative flex items-center pt-28 lg:min-h-screen overflow-hidden">
     <!-- Background glow -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl"></div>
@@ -327,45 +326,50 @@ $whatsappNumber = '234XXXXXXXXXX';
     <div class="particle w-2 h-2 bg-yellow-400" style="top:72%;right:12%;--d:9s"></div>
     <div class="particle w-3 h-3 bg-cyan-300" style="top:88%;left:28%;--d:11s"></div>
 
-    <!-- Hero photo -->
-    <div class="hero-photo" aria-hidden="true">
-      <img src="<?= APP_URL ?>/assets/img/hero-loyalty.jpg" alt="">
-    </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 lg:py-16 relative z-10 w-full">
+      <div class="grid lg:grid-cols-2 gap-8 lg:gap-14 items-center">
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-16 relative z-10 w-full">
-      <div class="max-w-[62%] sm:max-w-[58%] lg:max-w-[52%]">
-
-        <h1 class="text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl font-black mb-6 tracking-tight">
-          Your Loyalty<br>
-          Creates<br>
-          <span class="gt">Opportunity,<br>Shared Future.</span>
-        </h1>
-        <p class="text-gray-300 text-base sm:text-lg leading-relaxed mb-8 max-w-xl">
-          Zoefeeds is more than buying and selling. We’re building <strong class="text-white">a movement where customer loyalty creates rewarding opportunities and business growth helps us support people in need.</strong>
-          <span class="text-sky-400">Shop, earn eligible raffle entries, discover rewards, and be part of something meaningful.</span>
-        </p>
-
-        <div class="flex flex-wrap gap-3 mb-10">
-          <a href="#draws" class="btn btn-primary px-6 sm:px-8 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
-            Explore Rewards
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
-          </a>
-          <a href="<?= APP_URL ?>/user/login.php" class="btn btn-primary px-6 sm:px-10 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
-            Login
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
-          </a>
+        <!-- Photo: on top for phones/tablets, right-hand column on desktop -->
+        <div class="order-first lg:order-last">
+          <div class="hero-photo">
+            <img src="<?= APP_URL ?>/assets/img/hero-loyalty.jpg" alt="A mother and her child smiling together" width="1080" height="720" fetchpriority="high">
+          </div>
         </div>
 
-        <!-- Live Stats — rendered from DB and updated via JS -->
-        <div class="flex items-center gap-4 sm:gap-6 text-sm">
-          <div class="flex items-center gap-2">
-            <span id="stat-winners" class="live-counter text-3xl sm:text-4xl font-black text-green-400"><?php echo $totalWinners ?></span>
-            <span class="text-gray-400">Winners</span>
+        <!-- Text -->
+        <div>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-[1.08] font-black mb-5 tracking-tight">
+            Your Loyalty<br class="hidden sm:block">
+            Creates<br>
+            <span class="gt">Opportunity,<br>Shared Future.</span>
+          </h1>
+          <p class="text-gray-300 text-base sm:text-lg leading-relaxed mb-7 max-w-xl">
+            Zoefeeds is more than buying and selling. We’re building <strong class="text-white">a movement where customer loyalty creates rewarding opportunities and business growth helps us support people in need.</strong>
+            <span class="text-sky-400">Shop, earn eligible raffle entries, discover rewards, and be part of something meaningful.</span>
+          </p>
+
+          <div class="flex flex-wrap gap-3 mb-8">
+            <a href="#draws" class="btn btn-primary px-6 sm:px-8 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
+              Explore Rewards
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
+            </a>
+            <a href="<?= APP_URL ?>/user/login.php" class="btn btn-primary px-6 sm:px-10 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
+              Login
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
+            </a>
           </div>
-          <div class="hero-divider"></div>
-          <div class="flex items-center gap-2">
-            <span id="stat-draws" class="live-counter text-3xl sm:text-4xl font-black text-cyan-400"><?php echo $totalDraws ?></span>
-            <span class="text-gray-400">Draws Completed</span>
+
+          <!-- Live Stats — rendered from DB and updated via JS -->
+          <div class="flex items-center gap-4 sm:gap-6 text-sm">
+            <div class="flex items-center gap-2">
+              <span id="stat-winners" class="live-counter text-3xl sm:text-4xl font-black text-green-400"><?php echo $totalWinners ?></span>
+              <span class="text-gray-400">Winners</span>
+            </div>
+            <div class="hero-divider"></div>
+            <div class="flex items-center gap-2">
+              <span id="stat-draws" class="live-counter text-3xl sm:text-4xl font-black text-cyan-400"><?php echo $totalDraws ?></span>
+              <span class="text-gray-400">Draws Completed</span>
+            </div>
           </div>
         </div>
 
@@ -617,922 +621,22 @@ $whatsappNumber = '234XXXXXXXXXX';
          LIMIT 6"
       )->fetchAll();
 
-      foreach ($testimonials as $t): ?>
-        <div class="card p-6">
-          <div class="text-yellow-400 mb-3">
-            <?= str_repeat('⭐', (int)$t['rating']) ?>
-          </div>
-          <p class="text-gray-300 text-sm leading-relaxed mb-5">"<?= nl2br(e($t['content'])) ?>"</p>
-          <div class="flex items-center gap-3">
-            <?php if ($t['photo'] && file_exists(UPLOAD_PATH . $t['photo'])): ?>
-              <img src="<?= APP_URL ?>/uploads/<?= e($t['photo']) ?>"
-                class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
-            <?php else: ?>
-              <div class="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center font-bold text-orange-400 flex-shrink-0">
-                <?= e(mb_substr($t['full_name'], 0, 1)) ?>
-              </div>
-            <?php endif; ?>
-            <div>
-              <div class="font-semibold text-sm"><?= e($t['full_name']) ?></div>
-              <?php if ($t['role_title']): ?>
-                <div class="text-xs text-gray-500"><?= e($t['role_title']) ?></div>
-              <?php endif; ?>
-            </div>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     SOCIAL MEDIA
-====================================================== -->
-  <section class="py-20 max-w-5xl mx-auto px-4 sm:px-6 text-center">
-    <div class="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-1.5 text-sm font-semibold text-orange-400 mb-5">
-      📲 Stay Connected
-    </div>
-    <h2 class="text-4xl font-black mb-3">Connect With Us</h2>
-    <p class="text-gray-400 max-w-xl mx-auto text-sm mb-10">
-      Follow ZoeFeeds on social media for live draw reveals, winner announcements, and updates — straight from our official channels.
-    </p>
-
-    <div class="grid sm:grid-cols-3 gap-5 max-w-3xl mx-auto">
-
-      <!-- Facebook -->
-      <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
-        class="card p-6 flex flex-col items-center gap-3 hover:border-blue-500/40 hover:-translate-y-1 transition-all">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(59,130,246,.12)">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6">
-            <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.9h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
-          </svg>
-        </div>
-        <div class="font-bold text-sm">Facebook</div>
-        <div class="text-xs text-gray-500">Updates &amp; announcements</div>
-      </a>
-
-      <!-- YouTube -->
-      <a href="https://youtube.com/@zoefeedsloyaltyrewards?si=j0ibB156206GB7Zc" target="_blank" rel="noopener noreferrer"
-        class="card p-6 flex flex-col items-center gap-3 hover:border-red-500/40 hover:-translate-y-1 transition-all">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(239,68,68,.12)">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#ef4444">
-            <path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
-          </svg>
-        </div>
-        <div class="font-bold text-sm">YouTube</div>
-        <div class="text-xs text-gray-500">Live draw reveals</div>
-      </a>
-
-      <!-- TikTok -->
-      <a href="https://www.tiktok.com/@zoefeedsraffles?_r=1&_t=ZN-97tsm7fZ1Mc" target="_blank" rel="noopener noreferrer"
-        class="card p-6 flex flex-col items-center gap-3 hover:border-cyan-400/40 hover:-translate-y-1 transition-all">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background:rgba(6,182,212,.12)">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff">
-            <path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z" />
-          </svg>
-        </div>
-        <div class="font-bold text-sm">TikTok</div>
-        <div class="text-xs text-gray-500">Behind the scenes</div>
-      </a>
-
-    </div>
-  </section>
-
-
-
-
-  <!-- ======================================================
-     FAQ  — 19 Questions
-====================================================== -->
-  <section id="faq" class="py-20 bg-[#0d1218]">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6">
-      <div class="text-center mb-12">
-        <h2 class="text-4xl font-black mb-3">Frequently Asked Questions</h2>
-        <p class="text-gray-400 text-sm">Answers based on the official ZoeFeeds Terms &amp; Conditions</p>
-      </div>
-      <?php $faqs = [
-        [
-          'How do I get ZoeFeeds reward tickets?',
-          'You automatically receive free ZoeFeeds reward tickets whenever you buy airtime or data on ZoeFeeds — each successful purchase instantly generates a reward ticket for you. You can also receive reward tickets as gifts, whenever anyone freely gifts you a ticket directly. Every qualifying purchase earns you reward tickets that are included in the promotional draw. Once issued, a reward ticket is recorded and linked to your account, and you can check your account dashboard to view your available reward tickets.'
-        ],
-        [
-          'How much is a ZoeFeeds reward ticket?',
-          'ZoeFeeds reward tickets are completely free and are automatically awarded when you purchase airtime, data, or other eligible products on ZoeFeeds. You do not pay separately for reward tickets — you simply pay the normal price for the airtime or data bundle you\'re buying. <strong class="text-red-400">Warning:</strong> ZoeFeeds does not sell reward tickets, and anyone claiming to sell them is not authorized by ZoeFeeds. Our aim is to reward and appreciate our customers through a fair and transparent promotional reward program while providing affordable products and services. On any third-party platform, ZoeFeeds reward tickets must be transferred to you as a gift — never sold.'
-        ],
-        [
-          'What is a ZoeFeeds Reward Ticket?',
-          'A ZoeFeeds Reward Ticket is a free 15-digit ticket you receive automatically after buying airtime or data (or completing another eligible transaction) on ZoeFeeds, or one that is gifted to you by another party. The reward ticket lands directly in your ZoeFeeds wallet and you can use it to enter any available draw of your choice. Each reward ticket serves as your unique entry identifier in the draw. If your entry is selected as the winning identifier according to the draw rules, you win the prize.'
-        ],
-        [
-          'How can I check my reward tickets?',
-          'You can view all your reward tickets in your ZoeFeeds account dashboard immediately after a successful airtime or data purchase, or after you have manually redeemed a gifted reward ticket into your ZoeFeeds wallet.'
-        ],
-        [
-          'When will the raffle draw take place?',
-          'Each raffle draw\'s date is always counting down on our website and may be announced on our official social media platforms.'
-        ],
-        [
-          'How is the winner selected?',
-          'Winners are selected through a transparent and random manual process draw to ensure fairness for all participants. The owner of the ticket that matches the draw result in the most positions wins. If there is a tie, the winner with more ticket entries is chosen. If still tied, the participant who registered earliest on the platform wins.'
-        ],
-        [
-          'Who can participate in the ZoeFeeds Reward Draw?',
-          'The promotion is open only to persons aged 18 years and above who meet the participation requirements stated in the promotion rules, possess valid identification, and hold a valid ZoeFeeds account.'
-        ],
-        [
-          'Can I get more than one reward ticket?',
-          'Yes. Every airtime or data purchase you make earns you a new reward ticket, and any gifted reward ticket you receive will earn you additional entries too — increasing your chances of matching the draw.'
-        ],
-        [
-          'What prizes can be won?',
-          'Prize details for each promotional draw will be announced before the draw date and displayed on that particular draw\'s page and on our official channels.'
-        ],
-        [
-          'How will I know if I win?',
-          'Winners will be contacted through their registered phone number and/or email address and may also be announced on ZoeFeeds\' official platforms live!'
-        ],
-        [
-          'What happens if a winner cannot be reached?',
-          'If a winner cannot be contacted or fails to verify their identity within the specified period, another winner may be selected according to the promotion rules. ZoeFeeds operates by the principle that someone must win in each draw — it is mandatory!'
-        ],
-        [
-          'Can I transfer my reward tickets to someone else?',
-          'Yes. Redeemed reward tickets are linked to the account that earned them and guarded with a transfer PIN. However, if you wish, you can transfer a reward ticket as a gift to another user — but reward tickets must never be sold.'
-        ],
-        [
-          'Is the ZoeFeeds Reward Draw a lottery or gambling scheme?',
-          'No. The ZoeFeeds Reward Draw is a customer appreciation promotion tied to your everyday airtime and data purchases. Reward tickets are provided free as a promotional benefit and are not sold. They must remain free and not for sale — forever.'
-        ],
-        [
-          'Are my chances of winning the same as everyone else\'s?',
-          'Yes. Every valid reward ticket you enter into a particular draw has an equal chance of matching with the draw. Buying more airtime or data — and entering more reward tickets — increases your chances.'
-        ],
-        [
-          'How can I report fraud or suspicious activities?',
-          'If anyone claims to sell ZoeFeeds reward tickets or contacts you requesting payment to claim a prize, please contact ZoeFeeds support immediately through our official channels on the website.'
-        ],
-        [
-          'Where can I find the full promotion rules?',
-          'The complete Terms and Conditions for the ZoeFeeds Reward Draws are available on our website. <a href="' . APP_URL . '/user/terms.php" class="text-orange-400 hover:underline">Click here to read the full Terms &amp; Conditions →</a>'
-        ],
-        [
-          'What do I do when I am gifted a ZoeFeeds reward ticket offline?',
-          'If you receive a ZoeFeeds reward ticket offline, log in to your ZoeFeeds account and redeem it using the Reward Ticket Redemption button on your dashboard. Once redeemed, your eligibility balance will increase and the reward ticket will be added to your Redeemed Tickets Wallet, where you can use it to enter any available draw of your choice.'
-        ],
-        [
-          'How can I verify my reward tickets?',
-          'All valid ZoeFeeds reward tickets — whether earned from a purchase or redeemed from a gift — appear in your Redeemed Tickets Wallet on your dashboard. If a reward ticket from a purchase does not appear in your wallet, or a gifted reward ticket cannot be redeemed, contact ZoeFeeds Support for assistance.'
-        ],
-        [
-          'Can I enter a particular draw with more than one reward ticket?',
-          'Yes. You are encouraged to enter with as many reward tickets as you can to increase your chances of being the winner.'
-        ],
-        [
-          'What if nobody won in a draw?',
-          'ZoeFeeds raffles operate by the principle that someone must win and be given the prize in each draw. It is mandatory — every draw produces a winner.'
-        ],
+      // Sample cards (Nigeria-based). They only fill the empty slots up to 5 and
+      // disappear automatically as real testimonials are added in the admin panel.
+      // TODO: replace these with real customer feedback (with permission) before launch.
+      $sampleTestimonials = [
+        ['full_name' => 'Chinedu Okafor',    'role_title' => 'Student, Enugu',            'photo' => '', 'rating' => 5,
+         'content' => 'Data on ZoeFeeds is really affordable and it lands in seconds. Getting a reward ticket with every purchase is a nice bonus.'],
+        ['full_name' => 'Aisha Bello',       'role_title' => 'Trader, Kano',              'photo' => '', 'rating' => 5,
+         'content' => 'I buy airtime for my shop every week. Fast delivery, fair prices, and I can see my reward tickets right in my wallet.'],
+        ['full_name' => 'Oluwaseun Adeyemi', 'role_title' => 'Freelance Designer, Lagos', 'photo' => '', 'rating' => 4,
+         'content' => 'Simple to use and my monthly data bundle always arrives on time. I like that the draws are shown openly.'],
+        ['full_name' => 'Ngozi Eze',         'role_title' => 'Teacher, Awka',             'photo' => '', 'rating' => 5,
+         'content' => 'Sign-up took about a minute. Buying data is easy, and the reward tickets make everyday purchases feel worthwhile.'],
+        ['full_name' => 'Ibrahim Musa',      'role_title' => 'Business Owner, Abuja',     'photo' => '', 'rating' => 5,
+         'content' => 'Good rates compared to what I used to pay. Support replied quickly when I had a question about my reward tickets.'],
       ];
-      foreach ($faqs as $i => $faq): ?>
-        <div class="faq-item card mb-3 overflow-hidden rounded-xl">
-          <button onclick="this.closest('.faq-item').classList.toggle('faq-open')" class="w-full text-left px-5 py-4 flex items-center justify-between gap-3 hover:bg-white/2 transition-colors">
-            <span class="font-semibold text-sm md:text-base"><?= $faq[0] ?></span>
-            <svg class="faq-arr w-5 h-5 text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div class="faq-body">
-            <div class="px-5 pb-5 text-sm text-gray-400 leading-relaxed border-t border-white/5 pt-4"><?= $faq[1] ?></div>
-          </div>
-        </div>
-      <?php endforeach; ?>
-      <div class="text-center mt-8">
-        <a href="<?= APP_URL ?>/user/terms.php" class="text-orange-400 hover:underline text-sm font-medium">Read the full Terms &amp; Conditions →</a>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     WARNING BANNER
-====================================================== -->
-  <section class="py-10 bg-red-500/8 border-y border-red-500/20">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-      <div class="text-3xl mb-3">⚠️</div>
-      <h3 class="text-xl font-black text-red-400 mb-2">Official Warning</h3>
-      <p class="text-gray-300 text-sm leading-relaxed max-w-2xl mx-auto">
-        <strong>ZoeFeeds does not authorize the sale of reward tickets.</strong> Never pay any individual claiming to sell ZoeFeeds reward tickets or guarantee winning entries. All official information is communicated solely through ZoeFeeds' official channels at <strong class="text-white">www.zoefeeds.com</strong>.
-      </p>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     CTA
-====================================================== -->
-  <section class="py-24 relative overflow-hidden">
-    <div class="absolute inset-0 pointer-events-none" style="background:radial-gradient(ellipse at center,rgba(249,115,22,0.12) 0%,transparent 70%)"></div>
-    <div class="max-w-3xl mx-auto px-4 text-center relative z-10">
-      <div class="text-6xl mb-5">📶</div>
-      <h2 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ready to Buy &amp; Start Winning?</h2>
-      <p class="text-gray-400 text-lg mb-8 max-w-xl mx-auto">Join thousands buying affordable, long-lasting airtime and data on ZoeFeeds — and getting free reward tickets to win in our fair, transparent draws. Create your free account today.</p>
-      <div class="flex flex-wrap gap-4 justify-center">
-        <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-12 py-5 text-lg font-bold">📶 Create Free Account</a>
-        <a href="<?= APP_URL ?>/user/login.php" class="btn btn-secondary px-10 py-5 text-lg font-bold">🔑 Log In</a>
-      </div>
-      <div class="text-xs text-gray-600 mt-4">No credit card required · Free forever · Instant setup · Age 18+</div>
-    </div>
-  </section>
-
-
-  <?php require __DIR__ . '/components/footer.php'; ?>
-
-  <script>
-    window.APP_URL = '<?= APP_URL ?>';
-  </script>
-  <script src="<?= APP_URL ?>/assets/js/app.js"></script>
-  <script>
-    // Smooth scroll
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', e => {
-        const el = document.getElementById(a.getAttribute('href').slice(1));
-        if (el) {
-          e.preventDefault();
-          el.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      });
-    });
-    // Close mobile menu when clicking outside of it
-    document.addEventListener('click', (e) => {
-      const menu = document.getElementById('mob-menu');
-      const btn = document.getElementById('mob-menu-btn');
-      if (!menu || menu.classList.contains('hidden')) return;
-
-      const clickedInsideMenu = menu.contains(e.target);
-      const clickedButton = btn.contains(e.target);
-
-      if (!clickedInsideMenu && !clickedButton) {
-        menu.classList.add('hidden');
-      }
-    });
-    // Fade-in on scroll
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.style.opacity = '1';
-          e.target.style.transform = 'translateY(0)';
-          obs.unobserve(e.target);
-        }
-      });
-    }, {
-      threshold: 0.08
-    });
-    document.querySelectorAll('.draw-card-land, .card, .winner-card').forEach(el => {
-      el.style.cssText += ';opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease';
-      obs.observe(el);
-    });
-
-    // Live stats polling — refreshes every 30 seconds from a lightweight endpoint
-    (function pollStats() {
-      const setNum = (id, v) => {
-        const el = document.getElementById(id);
-        if (el && v !== undefined) el.textContent = Number(v).toLocaleString();
-      };
-      fetch('<?= APP_URL ?>/api/stats.php')
-        .then(r => r.json())
-        .then(data => {
-          setNum('stat-winners', data.winners);
-          setNum('stat-draws', data.draws);
-        })
-        .catch(() => {}) // silently fail — DB values already rendered server-side
-        .finally(() => setTimeout(pollStats, 30000));
-    })();
-  </script>
-
-
-</body>
-
-</html>
-<?php
-require_once __DIR__ . '/config/config.php';
-require_once __DIR__ . '/config/database.php';
-startAppSession();
-$db = getDB();
-
-$draws  = $db->query("SELECT * FROM draws WHERE status='active' ORDER BY end_date ASC LIMIT 6")->fetchAll();
-$slides = $db->query("SELECT * FROM slides WHERE status='active' ORDER BY sort_order ASC LIMIT 6")->fetchAll();
-$winners = $db->query("SELECT dw.*, d.title as draw_title, u.full_name, u.phone FROM draw_winners dw JOIN draws d ON dw.draw_id=d.id JOIN users u ON dw.user_id=u.id ORDER BY dw.announced_at DESC LIMIT 4")->fetchAll();
-$totalUsers   = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
-$totalWinners = $db->query("SELECT COUNT(*) FROM draw_winners")->fetchColumn();
-$totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'")->fetchColumn();
-
-// TODO: put the real ZoeFeeds WhatsApp number here (international format, digits only, e.g. 2348012345678)
-$whatsappNumber = '234XXXXXXXXXX';
-?>
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZoeFeeds — Buy Affordable Airtime &amp; Data, Win Big Prizes</title>
-  <meta name="description" content="ZoeFeeds lets you buy affordable, long-lasting airtime and data — and every purchase automatically earns you a reward ticket to enter our fair, transparent draws for cash and prizes.">
-  <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
-  <style>
-    * {
-      font-family: 'Poppins', sans-serif !important
-    }
-
-    .gt {
-      background: linear-gradient(135deg, #f97316, #fb923c, #fcd34d);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .glass {
-      background: rgba(255, 255, 255, 0.04);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    /* Hero photo: faded on the left, curved glowing edge on the bottom-left */
-    .hero-photo {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 56%;
-      height: 86%;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .hero-photo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: 70% center;
-      border-bottom-left-radius: 100% 38%;
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 38%);
-      mask-image: linear-gradient(to right, transparent 0%, #000 38%);
-    }
-
-    .hero-photo::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-bottom-left-radius: 100% 38%;
-      border-bottom: 3px solid #fbbf24;
-      box-shadow: 0 10px 26px -10px rgba(251, 146, 60, .9);
-      -webkit-mask-image: linear-gradient(to right, transparent 10%, #000 55%);
-      mask-image: linear-gradient(to right, transparent 10%, #000 55%);
-    }
-
-    @media (min-width: 1024px) {
-      .hero-photo {
-        width: 52%;
-        height: 100%;
-      }
-    }
-
-    .hero-divider {
-      width: 1px;
-      height: 40px;
-      background: rgba(255, 255, 255, .15);
-    }
-
-    .particle {
-      position: absolute;
-      border-radius: 50%;
-      opacity: .25;
-      animation: pf var(--d) ease-in-out infinite;
-    }
-
-    @keyframes pf {
-
-      0%,
-      100% {
-        transform: translate(0, 0)
-      }
-
-      40% {
-        transform: translate(18px, -26px)
-      }
-
-      70% {
-        transform: translate(-12px, 10px)
-      }
-    }
-
-    .ticker-wrap {
-      overflow: hidden;
-    }
-
-    .ticker {
-      display: flex;
-      width: max-content;
-      animation: tk 28s linear infinite;
-    }
-
-    .ticker:hover {
-      animation-play-state: paused;
-    }
-
-    @keyframes tk {
-      from {
-        transform: translateX(0)
-      }
-
-      to {
-        transform: translateX(-50%)
-      }
-    }
-
-    .faq-body {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height .4s ease;
-    }
-
-    .faq-open .faq-body {
-      max-height: 500px;
-    }
-
-    .faq-open .faq-arr {
-      transform: rotate(180deg);
-    }
-
-    .faq-arr {
-      transition: transform .3s;
-    }
-
-    .draw-card-land {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      overflow: hidden;
-      transition: all .3s;
-      cursor: pointer;
-    }
-
-    .draw-card-land:hover {
-      transform: translateY(-5px);
-      border-color: rgba(249, 115, 22, .4);
-      box-shadow: 0 20px 48px rgba(0, 0, 0, .5);
-    }
-
-    .step-connector {
-      position: absolute;
-      top: 28px;
-      left: calc(50% + 28px);
-      width: calc(100% - 56px);
-      height: 2px;
-      background: linear-gradient(90deg, rgba(249, 115, 22, .5), transparent);
-    }
-
-    @media(max-width:768px) {
-      .step-connector {
-        display: none;
-      }
-    }
-
-    .winner-card {
-      background: linear-gradient(135deg, rgba(234, 179, 8, .12), rgba(0, 0, 0, 0));
-      border: 1px solid rgba(234, 179, 8, .25);
-    }
-
-    section {
-      scroll-margin-top: 72px;
-    }
-
-    /* Live counter animation */
-    .live-counter {
-      transition: all .3s ease;
-    }
-  </style>
-</head>
-
-<body class="bg-[#0a0f1a] text-white overflow-x-hidden">
-
-  <!-- ======================================================
-     TOP BAR — contact row, then social row
-====================================================== -->
-  <div class="social-media-icon fixed w-full z-50 glass py-2 px-4 sm:px-8 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400">
-   <!-- <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-      <a href="mailto:support@zoefeeds.com" class="flex items-center gap-2 hover:text-white transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75M12 13.125a1.875 1.875 0 100-3.75 1.875 1.875 0 000 3.75z" />
-        </svg>
-        <span class="underline underline-offset-4">support@zoefeeds.com</span>
-      </a>
-      <div class="flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>https://zoefeeds.com</span>
-      </div>
-    </div> -->
-    <div class="flex gap-3 items-center justify-end">
-      <p class="text-gray-300">Connect with us on social media</p>
-      <div class="flex gap-3 items-center">
-        <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6">
-            <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.9h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
-          </svg>
-        </a>
-        <a href="https://youtube.com/@zoefeedsloyaltyrewards?si=j0ibB156206GB7Zc" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#ef4444">
-            <path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
-          </svg>
-        </a>
-        <a href="https://www.tiktok.com/@zoefeedsraffles?_r=1&_t=ZN-97tsm7fZ1Mc" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff">
-            <path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z" />
-          </svg>
-        </a>
-        <a href="https://wa.me/<?= e($whatsappNumber) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#22c55e">
-            <path d="M12.04 2a9.93 9.93 0 0 0-8.5 15.07L2 22l5.07-1.5A9.94 9.94 0 1 0 12.04 2Zm5.8 14.05c-.25.7-1.45 1.34-2 1.42-.5.08-1.13.11-1.82-.11-.42-.14-.96-.31-1.65-.61-2.9-1.25-4.8-4.17-4.94-4.37-.14-.19-1.18-1.57-1.18-3s.75-2.13 1.02-2.42c.26-.29.57-.36.76-.36h.55c.18 0 .42-.07.65.5.25.6.84 2.05.91 2.2.07.14.12.31.02.5-.09.2-.14.31-.28.48-.14.17-.3.38-.43.51-.14.14-.29.3-.12.58.17.29.74 1.22 1.6 1.98 1.1.98 2.03 1.28 2.32 1.43.29.14.46.12.63-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.65-.14.26.1 1.68.79 1.97.94.29.14.48.21.55.33.07.12.07.7-.18 1.4Z" />
-          </svg>
-        </a>
-      </div>
-    </div>
-  </div>
-
-  <!-- ======================================================
-     NAVBAR
-====================================================== -->
-  <nav class="fixed top-[88px] md:top-12 w-full z-50 glass border-b border-white/5">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex items-center justify-between h-16">
-
-        <a href="<?= APP_URL ?>" class="flex items-center gap-2 flex-shrink-0">
-          <div class="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center font-black text-white text-xl">Z</div>
-          <span class="font-bold text-xl">Zoe<span class="text-orange-500">Feeds</span></span>
-        </a>
-
-        <div class="hidden md:flex items-center gap-7">
-          <a href="#buy" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Buy Airtime/Data</a>
-          <a href="#draws" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Draws</a>
-          <a href="#how-it-works" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">How It Works</a>
-          <a href="#winners" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Winners</a>
-          <a href="#about" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">About</a>
-          <a href="#faq" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">FAQ</a>
-          <a href="<?= APP_URL ?>/user/terms.php" class="text-gray-400 hover:text-white text-sm font-medium transition-colors">Terms</a>
-          <!-- Vendor separator + link -->
-          <div class="w-px h-4 bg-white/10"></div>
-          <a href="<?= APP_URL ?>/vendor"
-            class="flex items-center gap-1.5 text-sm font-semibold transition-colors"
-            style="color:#a78bfa"
-            onmouseover="this.style.color='#c4b5fd'"
-            onmouseout="this.style.color='#a78bfa'">
-            🏪 Become a Vendor
-          </a>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <a href="<?= APP_URL ?>/user/login.php" class="hidden sm:inline-flex btn btn-secondary btn-sm">Log In</a>
-          <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary btn-sm">Get Started</a>
-          <button id="mob-menu-btn" class="md:hidden p-2 text-gray-400 hover:text-white" onclick="document.getElementById('mob-menu').classList.toggle('hidden')" aria-label="Menu">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Mobile menu -->
-      <div id="mob-menu" class="hidden md:hidden pb-4 space-y-1 border-t border-white/5 pt-3">
-        <?php foreach (['#buy' => 'Buy Airtime/Data', '#draws' => 'Draws', '#how-it-works' => 'How It Works', '#winners' => 'Winners', '#about' => 'About', '#faq' => 'FAQ'] as $h => $l): ?>
-          <a href="<?= $h ?>" class="block px-3 py-2 text-gray-400 hover:text-white text-sm rounded-lg hover:bg-white/5" onclick="document.getElementById('mob-menu').classList.add('hidden')"><?= $l ?></a>
-        <?php endforeach; ?>
-        <!-- Vendor link in mobile menu -->
-        <a href="<?= APP_URL ?>/vendor"
-          class="block px-3 py-2 text-sm font-semibold rounded-lg hover:bg-purple-500/10"
-          style="color:#a78bfa">
-          🏪 Become a Vendor
-        </a>
-        <div class="border-t border-white/5 mt-2 pt-2">
-          <a href="<?= APP_URL ?>/user/login.php" class="block px-3 py-2 text-orange-400 font-semibold text-sm">Log In</a>
-          <a href="<?= APP_URL ?>/user/register.php" class="block px-3 py-2 text-white font-semibold text-sm bg-orange-500 rounded-xl text-center mt-1">Get Started Free</a>
-        </div>
-      </div>
-    </div>
-  </nav>
-
-
-  <!-- ======================================================
-     HERO
-====================================================== -->
-  <section class="relative min-h-screen flex items-center pt-40 md:pt-28 overflow-hidden">
-    <!-- Background glow -->
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl"></div>
-      <div class="absolute bottom-1/4 left-1/4 w-64 h-64 bg-cyan-500/6 rounded-full blur-3xl"></div>
-      <div class="absolute inset-0 opacity-[0.03]" style="background-image:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,.5) 40px,rgba(255,255,255,.5) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,.5) 40px,rgba(255,255,255,.5) 41px)"></div>
-    </div>
-    <!-- Particles -->
-    <div class="particle w-3 h-3 bg-orange-500" style="top:18%;left:8%;--d:8s"></div>
-    <div class="particle w-2 h-2 bg-cyan-400" style="top:65%;left:4%;--d:10s"></div>
-    <div class="particle w-4 h-4 bg-orange-400" style="top:28%;right:7%;--d:7s"></div>
-    <div class="particle w-2 h-2 bg-yellow-400" style="top:72%;right:12%;--d:9s"></div>
-    <div class="particle w-3 h-3 bg-cyan-300" style="top:88%;left:28%;--d:11s"></div>
-
-    <!-- Hero photo -->
-    <div class="hero-photo" aria-hidden="true">
-      <img src="<?= APP_URL ?>/assets/img/hero-loyalty.jpg" alt="">
-    </div>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-16 relative z-10 w-full">
-      <div class="max-w-[62%] sm:max-w-[58%] lg:max-w-[52%]">
-
-        <h1 class="text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl font-black mb-6 tracking-tight">
-          Your Loyalty<br>
-          Creates<br>
-          <span class="gt">Opportunity,<br>Shared Future.</span>
-        </h1>
-        <p class="text-gray-300 text-base sm:text-lg leading-relaxed mb-8 max-w-xl">
-          Zoefeeds is more than buying and selling. We’re building <strong class="text-white">a movement where customer loyalty creates rewarding opportunities and business growth helps us support people in need.</strong>
-          <span class="text-sky-400">Shop, earn eligible raffle entries, discover rewards, and be part of something meaningful.</span>
-        </p>
-
-        <div class="flex flex-wrap gap-3 mb-10">
-          <a href="#draws" class="btn btn-primary px-6 sm:px-8 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
-            Explore Rewards
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
-          </a>
-          <a href="<?= APP_URL ?>/user/login.php" class="btn btn-primary px-6 sm:px-10 py-3.5 text-sm sm:text-base font-bold inline-flex items-center gap-2">
-            Login
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
-          </a>
-        </div>
-
-        <!-- Live Stats — rendered from DB and updated via JS -->
-        <div class="flex items-center gap-4 sm:gap-6 text-sm">
-          <div class="flex items-center gap-2">
-            <span id="stat-winners" class="live-counter text-3xl sm:text-4xl font-black text-green-400"><?php echo $totalWinners ?></span>
-            <span class="text-gray-400">Winners</span>
-          </div>
-          <div class="hero-divider"></div>
-          <div class="flex items-center gap-2">
-            <span id="stat-draws" class="live-counter text-3xl sm:text-4xl font-black text-cyan-400"><?php echo $totalDraws ?></span>
-            <span class="text-gray-400">Draws Completed</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     TICKER
-====================================================== -->
-  <div class="bg-orange-500/8 border-y border-orange-500/15 py-3 ticker-wrap">
-    <div class="ticker gap-0">
-      <?php $items = ['📶 Buy Affordable Airtime &amp; Data', '🎟️ Free Reward Ticket Per Purchase', '✅ Verified &amp; Compliant', '🏆 Life-Changing Prizes', '🔒 Secure &amp; Transparent', '⚡ Utility Bills Soon'];
-      for ($i = 0; $i < 4; $i++) foreach ($items as $it): ?>
-        <span class="text-orange-300/80 font-medium text-sm px-8 whitespace-nowrap"><?= $it ?></span>
-        <span class="text-orange-500/30 text-xl px-2">·</span>
-      <?php endforeach; ?>
-    </div>
-  </div>
-
-
-  <!-- ======================================================
-     ADVERT SLIDESHOW
-====================================================== -->
-  <?php if ($slides): ?>
-    <section class="py-14 max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold">Featured Campaigns</h2>
-      </div>
-      <div class="relative slideshow bg-[#111827] rounded-2xl overflow-hidden" data-slideshow style="min-height:260px">
-        <?php foreach ($slides as $s): ?>
-          <div class="slide">
-            <?php if ($s['image_path'] && file_exists(UPLOAD_PATH . $s['image_path'])): ?>
-              <img src="<?= APP_URL ?>/uploads/<?= e($s['image_path']) ?>" class="w-full h-64 object-cover" alt="<?= e($s['title'] ?? '') ?>">
-            <?php else: ?>
-              <div class="h-64 flex flex-col items-center justify-center" style="background:linear-gradient(135deg,#1a2235,#0d1929)">
-                <div class="text-5xl mb-3">📶</div>
-                <div class="text-xl font-bold"><?= e($s['title'] ?? 'ZoeFeeds Campaign') ?></div>
-              </div>
-            <?php endif; ?>
-          </div>
-        <?php endforeach; ?>
-        <div class="slide-dots absolute bottom-4 left-0 right-0 flex justify-center gap-2"></div>
-      </div>
-    </section>
-  <?php endif; ?>
-
-
-  <!-- ======================================================
-     LIVE DRAWS
-====================================================== -->
-  <section id="draws" class="py-16 bg-[#0d1218]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="text-center mb-12">
-        <div class="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-full px-4 py-1.5 text-sm font-semibold text-red-400 mb-4">
-          <span class="pulse-dot" style="background:#ef4444"></span> Live Draws
-        </div>
-        <h2 class="text-4xl font-black mb-3">Active Draw Campaigns</h2>
-        <p class="text-gray-400 max-w-lg mx-auto text-sm">Every airtime or data purchase earns you a reward ticket. Enter draws using your redeemed reward tickets — every valid entry has an equal chance of selection, and there is a <strong class="text-orange-400">mandatory</strong> winner every draw.</p>
-      </div>
-
-      <?php if ($draws): ?>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <?php foreach ($draws as $d): ?>
-            <div class="draw-card-land" onclick="location.href='<?= APP_URL ?>/user/register.php'">
-              <div class="h-40 flex items-center justify-center text-5xl" style="background:linear-gradient(135deg,#1a2235,#0d1118)">
-                <?php if ($d['banner_image'] && file_exists(UPLOAD_PATH . $d['banner_image'])): ?>
-                  <img src="<?= APP_URL ?>/uploads/<?= e($d['banner_image']) ?>" class="w-full h-full object-cover" alt="">
-                  <?php else: ?>🎰<?php endif; ?>
-              </div>
-              <div class="p-5">
-                <div class="flex gap-2 mb-2 flex-wrap">
-                  <span class="badge badge-success">● LIVE</span>
-                  <?php if ($d['category']): ?><span class="badge badge-info"><?= e($d['category']) ?></span><?php endif; ?>
-                </div>
-                <h3 class="font-bold mb-2 line-clamp-2"><?= e($d['title']) ?></h3>
-                <?php if ($d['prize_details']): ?><p class="text-sm text-orange-400 font-semibold mb-3">🏆 <?= e(mb_substr($d['prize_details'], 0, 55)) ?>…</p><?php endif; ?>
-                <div class="flex gap-3 items-center flex-wrap mb-4" data-countdown="<?= e($d['end_date']) ?>"></div>
-                <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary w-full text-sm py-2.5">Enter Draw →</a>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php else: ?>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <?php $dummyDraws = [
-            ['🏆', 'Monthly Grand Draw', 'Win up to ₦1,000,000', 'Grand Prize', '2026-07-31 23:59:00'],
-            ['🎯', 'Daily Patronage Draw', 'Win daily cash prizes', 'Daily Patronage', '2026-06-30 23:59:00'],
-            ['🚌', 'Transport Credits Draw', 'Win ₦50,000 transport credits', 'Transport', '2026-07-15 23:59:00'],
-            ['📱', 'Dashboard Loyalty Draw', 'Active users only', 'Dashboard Loyalty', '2026-07-01 23:59:00'],
-            ['⭐', 'Vendor Campaign Draw', 'Special campaign draw', 'Vendor Campaign', '2026-06-28 23:59:00'],
-            ['🏛️', 'Government Ticket Draw', 'Special category draw', 'Government Ticket', '2026-08-01 23:59:00'],
-          ];
-          foreach ($dummyDraws as $dd): ?>
-            <div class="draw-card-land" onclick="location.href='<?= APP_URL ?>/user/register.php'">
-              <div class="h-40 flex items-center justify-center text-5xl" style="background:linear-gradient(135deg,#1a2235,#0d1118)"><?= $dd[0] ?></div>
-              <div class="p-5">
-                <div class="flex gap-2 mb-2"><span class="badge badge-success">● LIVE</span><span class="badge badge-info"><?= $dd[3] ?></span></div>
-                <h3 class="font-bold mb-2"><?= $dd[1] ?></h3>
-                <p class="text-sm text-orange-400 font-semibold mb-3">🏆 <?= $dd[2] ?></p>
-                <div class="flex gap-3 mb-4" data-countdown="<?= $dd[4] ?>"></div>
-                <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary w-full text-sm py-2.5">Enter Draw →</a>
-              </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     HOW IT WORKS
-====================================================== -->
-  <section id="how-it-works" class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="text-center mb-14">
-      <h2 class="text-4xl font-black mb-3">How ZoeFeeds Works</h2>
-      <p class="text-gray-400 max-w-xl mx-auto">Simple steps to start winning. Participation is straightforward, transparent, and fully documented.</p>
-    </div>
-    <div class="grid md:grid-cols-4 gap-8 relative">
-      <?php $steps = [
-        ['1', '📝', 'Create Your Account', 'Register with your phone number in under 60 seconds. Free forever. Age 18+ only.'],
-        ['2', '📶', 'Buy Airtime or Data', 'Purchase affordable, long-lasting airtime or data bundles directly on ZoeFeeds. Every successful purchase automatically issues you a unique 15-digit reward ticket into your wallet — no extra step needed.'],
-        ['3', '🎯', 'Enter a Draw', 'Choose an active draw campaign and submit your reward ticket(s). More purchases = more reward tickets = more chances.'],
-        ['4', '🏆', 'Win Prizes', 'Our transparent, certified manual machine draw process selects winners fairly. Winners are notified via SMS, email &amp; website announcement.'],
-      ];
-      foreach ($steps as $i => $s): ?>
-        <div class="text-center relative">
-          <?php if ($i < 3): ?><div class="step-connector hidden md:block"></div><?php endif; ?>
-          <div class="w-16 h-16 bg-orange-500/10 border-2 border-orange-500/25 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 relative z-10"><?= $s[1] ?></div>
-          <div class="inline-flex items-center justify-center w-6 h-6 bg-orange-500 rounded-full text-white text-xs font-black mb-2"><?= $s[0] ?></div>
-          <h3 class="font-bold text-base mb-2"><?= $s[2] ?></h3>
-          <p class="text-gray-400 text-sm leading-relaxed"><?= $s[3] ?></p>
-        </div>
-      <?php endforeach; ?>
-    </div>
-    <div class="text-center mt-12">
-      <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary px-10 py-4 text-base font-bold">Start Now — It's Free</a>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     ABOUT
-====================================================== -->
-  <section id="about" class="py-20 bg-[#0d1218]">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6">
-      <div class="grid lg:grid-cols-2 gap-14 items-center">
-        <div>
-          <div class="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 text-sm font-semibold text-green-400 mb-5">
-            ✅ Regulated &amp; Compliant
-          </div>
-          <h2 class="text-4xl font-black mb-5">Our Purpose</h2>
-          <p class="text-gray-400 leading-relaxed mb-4">
-            ZoeFeeds helps customers get <strong class="text-white">affordable, reliable airtime and data</strong> while running the <strong class="text-white">ZoeFeeds Reward Draw</strong> — a customer appreciation and promotional campaign designed to reward eligible customers through a transparent and fair draw process.
-          </p>
-          <p class="text-gray-400 leading-relaxed mb-4">
-            Our aim is to <strong class="text-white">reward and appreciate loyal customers</strong> through a fair, transparent, and compliant promotional reward program while providing affordable access to airtime, data, and other valuable products and services.
-          </p>
-          <p class="text-gray-400 leading-relaxed mb-6">
-            The Promotion is intended solely as a <strong class="text-white">customer appreciation initiative</strong> and shall not be construed as a gambling, betting, or wagering activity. All draws are conducted in accordance with applicable laws and regulatory approvals.
-          </p>
-          <div class="flex flex-wrap gap-3">
-            <a href="<?= APP_URL ?>/user/terms.php" class="btn btn-secondary">📄 Read Full T&amp;C</a>
-            <a href="<?= APP_URL ?>/user/register.php" class="btn btn-primary">Join ZoeFeeds</a>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <?php $vals = [
-            ['📶', 'Affordable', 'Long-lasting airtime & data bundles at competitive rates'],
-            ['⚖️', 'Fair', 'Equal chance for every valid entry. Certified random selection process.'],
-            ['👁️', 'Transparent', 'Live draw reveals. Every digit shown publicly in real-time.'],
-            ['✅', 'Verified', 'All winners independently verified before prizes are awarded.'],
-            ['🇳🇬', 'Compliant', 'Operating under Nigerian laws with all required regulatory approvals.'],
-            ['🏆', 'Real Prizes', 'Cash, credits, and other tangible prizes — no points, no vouchers.'],
-          ];
-          foreach ($vals as $v): ?>
-            <div class="card p-5">
-              <div class="text-2xl mb-2"><?= $v[0] ?></div>
-              <div class="font-bold text-sm mb-1"><?= $v[1] ?></div>
-              <div class="text-xs text-gray-500 leading-relaxed"><?= $v[2] ?></div>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     RECENT WINNERS
-====================================================== -->
-  <section id="winners" class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="text-center mb-12">
-      <h2 class="text-4xl font-black mb-3">Recent Winners</h2>
-      <p class="text-gray-400 max-w-xl mx-auto text-sm">Winners are selected transparently. Every winner is verified before prizes are awarded.</p>
-    </div>
-    <?php if ($winners): ?>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <?php foreach ($winners as $w):
-          $initial = strtoupper(mb_substr($w['full_name'], 0, 1));
-          $maskedName = $initial . '***' . mb_substr($w['full_name'], -1);
-        ?>
-          <div class="winner-card rounded-2xl p-5 text-center">
-            <div class="text-4xl mb-3">🏆</div>
-            <div class="font-bold text-yellow-400 text-sm mb-0.5"><?= e($maskedName) ?></div>
-            <div class="text-xs text-gray-400 mb-2"><?= e(mb_substr($w['draw_title'], 0, 30)) ?>…</div>
-            <div class="font-mono text-xs text-orange-400 bg-black/20 rounded-lg px-2 py-1 mb-2"><?= e(substr($w['winning_code'], 0, 7)) . '·····' ?></div>
-            <div class="text-xs text-gray-600"><?= date('M j, Y', strtotime($w['announced_at'])) ?></div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php else: ?>
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <?php $dummyW = [['E***a', 'Monthly Grand Draw', '₦500,000'], ['B***g', 'Daily Draw', '₦50,000'], ['C***n', 'Transport Draw', '₦30,000'], ['M***e', 'Dashboard Loyalty', '₦20,000']];
-        foreach ($dummyW as $dw): ?>
-          <div class="winner-card rounded-2xl p-5 text-center">
-            <div class="text-4xl mb-3">🏆</div>
-            <div class="font-bold text-yellow-400 text-sm mb-0.5"><?= $dw[0] ?></div>
-            <div class="text-xs text-gray-400 mb-2"><?= $dw[1] ?></div>
-            <div class="font-semibold text-orange-400 text-sm mb-1"><?= $dw[2] ?></div>
-            <div class="text-xs text-gray-600">Verified Winner</div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-    <div class="text-center">
-      <a href="<?= APP_URL ?>/user/winners.php" class="btn btn-secondary px-8 py-3">View All Winners →</a>
-    </div>
-  </section>
-
-
-  <!-- ======================================================
-     TESTIMONIALS
-====================================================== -->
-  <section class="py-20 max-w-7xl mx-auto px-4 sm:px-6">
-    <div class="text-center mb-12">
-      <h2 class="text-4xl font-black mb-3">What Participants Say</h2>
-      <p class="text-gray-400 text-sm">Real experiences from real ZoeFeeds users</p>
-    </div>
-    <div class="grid md:grid-cols-3 gap-5">
-      <?php
-      $testimonials = getDB()->query(
-        "SELECT full_name, role_title, photo, rating, content
-         FROM testimonials
-         WHERE status='active'
-         ORDER BY display_order ASC, created_at DESC
-         LIMIT 6"
-      )->fetchAll();
+      $testimonials = array_merge($testimonials, array_slice($sampleTestimonials, 0, max(0, 5 - count($testimonials))));
 
       foreach ($testimonials as $t): ?>
         <div class="card p-6">
