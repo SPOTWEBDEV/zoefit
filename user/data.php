@@ -165,6 +165,23 @@ $recent = $recent->fetchAll();
 
 $currentPage = 'data';
 $pageTitle   = 'Buy Data';
+
+// ── Display helpers for the plan cards ──
+function zfPlanParts(string $name): array {
+    $num = ''; $unit = ''; $val = '';
+    if (preg_match('/(\d+(?:\.\d+)?)\s*(TB|GB|MB)\b/i', $name, $m)) { $num = $m[1]; $unit = strtoupper($m[2]); }
+    if (preg_match('/(\d+\s*(?:days?|weeks?|months?|hrs?|hours?))/i', $name, $v)) {
+        $val = ucwords(strtolower($v[1]));
+    } elseif (preg_match('/night|weekend|monthly|weekly|daily/i', $name, $v)) {
+        $val = ucfirst(strtolower($v[0]));
+    }
+    return [$num, $unit, $val];
+}
+function zfTickets(int $priceKobo): string {
+    $n = ($priceKobo / 100) / max(1, REWARD_NAIRA_PER_CODE);
+    $txt = fmod($n, 1) == 0.0 ? (string) (int) $n : number_format($n, 1);
+    return $txt . ($n > 1 ? ' Tickets' : ' Ticket');
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -174,6 +191,28 @@ $pageTitle   = 'Buy Data';
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
+  <style>
+    .panel { background:#111827; border:1px solid rgba(255,255,255,.06); border-radius:20px }
+    .tabs { display:flex; gap:22px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid rgba(255,255,255,.07) }
+    .tabs::-webkit-scrollbar { display:none }
+    .type-chip { position:relative; padding:0 0 12px; font-size:14px; font-weight:500; color:#6b7280; white-space:nowrap }
+    .type-chip.on { color:#fff; font-weight:700 }
+    .type-chip.on::after { content:""; position:absolute; left:0; bottom:-1px; width:28px; height:3px; border-radius:3px; background:#fb923c }
+    .pc { display:flex; flex-direction:column; justify-content:space-between; text-align:center; min-height:128px; padding:14px 6px 0; transition:border-color .15s, background .15s }
+    .pc-size { font-size:22px; font-weight:800; line-height:1.1 }
+    .pc-size small { font-size:12px; font-weight:700; margin-left:1px }
+    .pc-name { font-size:12px; font-weight:600; line-height:1.3; padding:0 4px }
+    .pc-val { font-size:13px; color:#d1d5db; margin-top:6px }
+    .pc-price { font-size:12px; color:#6b7280; margin-top:6px }
+    .pc-tix { color:#fb923c; font-size:11.5px; font-weight:600; padding:8px 2px 11px }
+    #plan-grid.list { grid-template-columns:1fr }
+    #plan-grid.list .pc { flex-direction:row; align-items:center; text-align:left; min-height:0; padding:12px 14px; gap:12px }
+    #plan-grid.list .pc-main { flex:1; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap }
+    #plan-grid.list .pc-val, #plan-grid.list .pc-price { margin-top:0 }
+    #plan-grid.list .pc-tix { padding:0 }
+    .net-tab.is-on { outline:2px solid #fb923c; outline-offset:2px; opacity:1 }
+    .net-tab { opacity:.5; transition:opacity .15s }
+  </style>
 </head>
 <body class="bg-[#0a0f1a] text-white font-sans">
 
@@ -182,126 +221,112 @@ $pageTitle   = 'Buy Data';
 <div class="main-content">
   <div class="topbar">
     <button onclick="toggleSidebar()" class="md:hidden text-gray-400 hover:text-white text-2xl mr-3">☰</button>
-    <div>
-      <div class="font-semibold">Buy Data</div>
-      <div class="text-xs text-gray-400">Instant data bundles from your wallet</div>
+    <div class="flex-1">
+      <div class="font-semibold">Mobile Data</div>
+      <div class="text-xs text-gray-400">Wallet: <?= formatNaira($walletBalance) ?></div>
     </div>
+    <a href="#recent" class="text-sm font-semibold text-orange-400">History</a>
   </div>
 
   <div class="p-4 md:p-8 max-w-6xl mx-auto">
 
-    <!-- Page header -->
-    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Buy Data</h1>
-        <p class="text-sm text-gray-400 mt-1">Pick a network and a bundle. Delivered in seconds, with raffle codes on every purchase.</p>
-      </div>
-      <div class="inline-flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 self-start">
-        <div class="w-9 h-9 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-400">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-        </div>
-        <div>
-          <div class="text-[11px] uppercase tracking-wider text-gray-400">Wallet balance</div>
-          <div class="font-bold leading-tight"><?= formatNaira($walletBalance) ?></div>
-        </div>
-      </div>
-    </div>
-
     <!-- Alerts -->
     <?php if ($errors): ?>
-      <div class="mb-6 flex gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-200 p-4 text-sm" role="alert">
-        <svg class="w-5 h-5 flex-shrink-0 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.7 7.3a1 1 0 00-1.4 1.4L8.6 10l-1.3 1.3a1 1 0 101.4 1.4L10 11.4l1.3 1.3a1 1 0 001.4-1.4L11.4 10l1.3-1.3a1 1 0 00-1.4-1.4L10 8.6 8.7 7.3z" clip-rule="evenodd"/></svg>
+      <div class="mb-5 flex gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-200 p-4 text-sm" role="alert">
         <div class="space-y-1"><?php foreach ($errors as $err): ?><div><?= e($err) ?></div><?php endforeach; ?></div>
       </div>
     <?php endif; ?>
     <?php if ($success): ?>
-      <div class="mb-6 flex gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 p-4 text-sm" role="status">
-        <svg class="w-5 h-5 flex-shrink-0 text-emerald-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.7-9.3a1 1 0 00-1.4-1.4L9 10.6 7.7 9.3a1 1 0 00-1.4 1.4l2 2a1 1 0 001.4 0l4-4z" clip-rule="evenodd"/></svg>
-        <div><?= e($success) ?></div>
-      </div>
+      <div class="mb-5 flex gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 p-4 text-sm" role="status"><div><?= e($success) ?></div></div>
     <?php endif; ?>
     <?php if ($notice): ?>
-      <div class="mb-6 flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-200 p-4 text-sm" role="status">
-        <svg class="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.3 3.2a2 2 0 013.4 0l6 10.5A2 2 0 0116 16.7H4a2 2 0 01-1.7-3L8.3 3.2zM10 7a1 1 0 00-1 1v3a1 1 0 002 0V8a1 1 0 00-1-1zm0 7.5a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-        <div><?= e($notice) ?></div>
-      </div>
+      <div class="mb-5 flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-200 p-4 text-sm" role="status"><div><?= e($notice) ?></div></div>
     <?php endif; ?>
 
-    <div class="grid lg:grid-cols-5 gap-6 items-start">
+    <!-- Promo banner -->
+    <div class="relative overflow-hidden rounded-2xl h-28 flex items-center px-5 mb-5" style="background:linear-gradient(120deg,#1a2235 0%,#3b1d08 60%,#f97316 150%)">
+      <div>
+        <div class="text-lg font-extrabold leading-tight text-orange-400">Buy data, earn tickets</div>
+        <div class="text-sm text-white font-semibold">₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> spent = 1 free ticket</div>
+        <div class="text-xs text-gray-300 mt-0.5">Tickets are your raffle codes</div>
+      </div>
+      <div class="absolute right-5 text-6xl">🎟️</div>
+    </div>
 
-      <!-- ───────────── FORM ───────────── -->
-      <div class="lg:col-span-3 card p-5 md:p-7 space-y-7">
+    <div class="grid lg:grid-cols-5 gap-5 items-start">
 
-        <!-- Step 1: network tabs (reload the plan list, keep the typed number) -->
-        <section>
-          <div class="flex items-center gap-3 mb-3">
-            <span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center">1</span>
-            <h2 class="text-sm font-semibold">Choose network</h2>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <!-- ───────── LEFT: network, phone, plans ───────── -->
+      <div class="lg:col-span-3 space-y-4">
+
+        <!-- Network + phone -->
+        <div class="panel p-4">
+          <div class="flex gap-3 mb-4">
             <?php foreach ($networks as $key => $label): ?>
-              <a href="?network=<?= $key ?>" data-network="<?= $key ?>"
-                 class="net-tab flex items-center justify-center gap-2 py-3 px-2 rounded-xl border text-sm font-medium transition
-                        <?= $networkInput===$key ? 'border-orange-400 bg-orange-500/10 ring-1 ring-orange-400/40' : 'border-white/10 bg-white/[0.04] hover:bg-white/10' ?>">
-                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:<?= $networkColors[$key] ?>"></span>
-                <span class="truncate"><?= e($label) ?></span>
-              </a>
+              <a href="?network=<?= $key ?>" data-network="<?= $key ?>" title="<?= e($label) ?>"
+                 class="net-tab w-12 h-12 rounded-full flex items-center justify-center text-[10px] font-extrabold <?= $networkInput===$key ? 'is-on' : '' ?>"
+                 style="background:<?= $networkColors[$key] ?>;color:<?= $key==='mtn' ? '#000' : '#fff' ?>"><?= e($label) ?></a>
             <?php endforeach; ?>
           </div>
-        </section>
+          <div class="flex items-center gap-3 border-t border-white/5 pt-3">
+            <input form="data-form" type="tel" name="phone" id="phone" required inputmode="numeric" autocomplete="off"
+                   value="<?= e($phoneInput) ?>" placeholder="080 0000 0000"
+                   class="flex-1 min-w-0 bg-transparent text-xl font-bold tracking-wide outline-none placeholder:text-gray-600">
+            <button type="button" id="use-mine" data-phone="<?= e($user['phone'] ?? '') ?>" aria-label="Use my number"
+                    class="w-10 h-10 rounded-full bg-orange-400 flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6" fill="#fff" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z"/></svg>
+            </button>
+          </div>
+        </div>
 
-        <form method="POST" id="data-form" class="space-y-7" autocomplete="off">
+        <form method="POST" id="data-form" autocomplete="off">
           <?= csrfField() ?>
           <input type="hidden" name="network" value="<?= e($networkInput) ?>">
           <input type="hidden" name="expected_price" id="expected-price" value="">
 
-          <!-- Step 2 -->
-          <section>
-            <div class="flex items-center gap-3 mb-3">
-              <span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center">2</span>
-              <h2 class="text-sm font-semibold">Phone number</h2>
-            </div>
-            <input type="tel" name="phone" id="phone" required inputmode="numeric" value="<?= e($phoneInput) ?>" placeholder="08012345678"
-                   class="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3.5 text-base focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/40 placeholder:text-gray-600">
-          </section>
-
-          <!-- Step 3 -->
-          <section>
-            <div class="flex items-center justify-between gap-3 mb-3">
-              <div class="flex items-center gap-3">
-                <span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold flex items-center justify-center">3</span>
-                <h2 class="text-sm font-semibold">Select a bundle</h2>
+          <!-- Plans -->
+          <div class="panel p-4">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-extrabold">Data Plans</h2>
+              <div class="flex gap-2">
+                <button type="button" id="v-grid" class="text-orange-400" aria-label="Grid view"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h5v5H3zM9.5 3h5v5h-5zM16 3h5v5h-5zM3 9.5h5v5H3zM9.5 9.5h5v5h-5zM16 9.5h5v5h-5zM3 16h5v5H3zM9.5 16h5v5h-5zM16 16h5v5h-5z"/></svg></button>
+                <button type="button" id="v-list" class="text-gray-600" aria-label="List view"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v4H3zM3 16h18v4H3z"/></svg></button>
               </div>
-              <span class="text-xs text-gray-500"><?= count($networkPlans) ?> available</span>
             </div>
 
             <?php if (count($planTypes) > 1): ?>
-            <div class="flex flex-wrap gap-2 mb-3" id="type-filters">
-              <button type="button" data-type="" class="type-chip px-3.5 py-1.5 rounded-full text-xs font-medium border border-orange-400 bg-orange-500/15 transition">All</button>
+            <div class="tabs mb-4" id="type-filters">
+              <button type="button" data-type="" class="type-chip on">All</button>
               <?php foreach ($planTypes as $t): ?>
-                <button type="button" data-type="<?= e($t) ?>" class="type-chip px-3.5 py-1.5 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/10 transition"><?= e($t) ?></button>
+                <button type="button" data-type="<?= e($t) ?>" class="type-chip"><?= e($t) ?></button>
               <?php endforeach; ?>
             </div>
             <?php endif; ?>
 
             <?php if ($networkPlans): ?>
-            <div class="grid sm:grid-cols-2 gap-2.5" id="plan-grid">
-              <?php foreach ($networkPlans as $plan): ?>
+            <div class="grid grid-cols-3 gap-2.5" id="plan-grid">
+              <?php foreach ($networkPlans as $plan):
+                [$pn, $pu, $pv] = zfPlanParts($plan['name']); ?>
               <label class="plan-card cursor-pointer min-w-0" data-type="<?= e($plan['type'] ?? '') ?>">
                 <input type="radio" name="plan_code" value="<?= e($plan['code']) ?>"
                        data-name="<?= e($plan['name']) ?>" data-price="<?= (int) $plan['price'] / 100 ?>" data-kobo="<?= (int) $plan['price'] ?>"
                        <?= $planInput===$plan['code']?'checked':'' ?> required class="peer sr-only">
-                <div class="h-full flex flex-col justify-between gap-3 p-3.5 rounded-xl border border-white/10 bg-white/[0.04] transition
-                            hover:bg-white/10 peer-checked:border-orange-400 peer-checked:bg-orange-500/10 peer-checked:ring-1 peer-checked:ring-orange-400/40 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
-                  <div class="text-sm font-medium leading-snug"><?= e($plan['name']) ?></div>
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-base font-bold text-orange-400"><?= formatNaira($plan['price']) ?></span>
-                    <?php if (!empty($plan['type'])): ?><span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/10 text-gray-400"><?= e($plan['type']) ?></span><?php endif; ?>
+                <div class="pc h-full rounded-2xl border border-white/10 bg-white/[0.05] hover:bg-white/10
+                            peer-checked:border-orange-400 peer-checked:bg-orange-500/10 peer-focus-visible:ring-2 peer-focus-visible:ring-orange-400">
+                  <div class="pc-main">
+                    <?php if ($pn !== ''): ?>
+                      <div class="pc-size"><?= e($pn) ?><small><?= e($pu) ?></small></div>
+                    <?php else: ?>
+                      <div class="pc-name"><?= e($plan['name']) ?></div>
+                    <?php endif; ?>
+                    <?php if ($pv !== ''): ?><div class="pc-val"><?= e($pv) ?></div><?php endif; ?>
+                    <div class="pc-price"><?= formatNaira($plan['price']) ?></div>
                   </div>
+                  <div class="pc-tix">🎟️ <?= zfTickets((int) $plan['price']) ?></div>
                 </div>
               </label>
               <?php endforeach; ?>
             </div>
+            <p class="text-[11px] text-gray-500 mt-4">Ticket rewards add up across purchases — every ₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> spent earns 1 free ticket (raffle code).</p>
             <?php else: ?>
               <div class="rounded-xl border border-dashed border-white/10 p-8 text-center">
                 <div class="text-2xl mb-2">📡</div>
@@ -310,19 +335,25 @@ $pageTitle   = 'Buy Data';
               </div>
             <?php endif; ?>
             <p id="balance-warning" class="hidden text-xs text-amber-400 mt-3">This bundle costs more than your wallet balance. Deposit funds to continue.</p>
-          </section>
+          </div>
 
-          <button type="submit" id="submit-btn" <?= $networkPlans ? '' : 'disabled' ?>
-                  class="btn bg-orange-400 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white w-full justify-center py-3.5 font-semibold text-base rounded-xl">
-            <span id="submit-label">Buy Data</span>
-          </button>
+          <!-- Sticky pay bar -->
+          <div class="sticky bottom-3 mt-4 z-20 rounded-2xl border border-white/10 bg-[#111827]/95 backdrop-blur p-3 flex items-center gap-3 shadow-2xl">
+            <div class="flex-1 min-w-0">
+              <div class="text-xs text-gray-400 truncate" id="bar-plan">Select a plan</div>
+              <div class="font-extrabold text-orange-400 leading-tight" id="bar-total">₦0</div>
+            </div>
+            <button type="submit" id="submit-btn" <?= $networkPlans ? '' : 'disabled' ?>
+                    class="btn bg-orange-400 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 font-semibold rounded-xl">
+              <span id="submit-label">Buy Data</span>
+            </button>
+          </div>
         </form>
       </div>
 
-      <!-- ───────────── SUMMARY ───────────── -->
+      <!-- ───────── RIGHT: summary + rewards ───────── -->
       <aside class="lg:col-span-2 space-y-4 lg:sticky lg:top-6">
-
-        <div class="card p-5 md:p-6">
+        <div class="panel p-5">
           <h3 class="text-sm font-semibold mb-4">Order summary</h3>
           <dl class="space-y-3 text-sm">
             <div class="flex justify-between gap-4"><dt class="text-gray-400">Network</dt><dd class="font-medium"><?= e($networks[$networkInput]) ?></dd></div>
@@ -335,12 +366,12 @@ $pageTitle   = 'Buy Data';
           </dl>
         </div>
 
-        <div class="rounded-2xl p-5 md:p-6 border border-orange-400/25 bg-gradient-to-br from-orange-500/15 via-orange-500/5 to-transparent">
+        <div class="rounded-2xl p-5 border border-orange-400/25 bg-gradient-to-br from-orange-500/15 via-orange-500/5 to-transparent">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold flex items-center gap-2">🎟️ Purchase rewards</h3>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-orange-400/15 text-orange-300 font-medium">₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> = 1 code</span>
+            <h3 class="text-sm font-semibold">🎟️ Ticket rewards</h3>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-orange-400/15 text-orange-300 font-medium">₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> = 1 ticket</span>
           </div>
-          <div class="text-sm" id="reward-text">Spend ₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> or more to earn free raffle codes.</div>
+          <div class="text-sm" id="reward-text">Spend ₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> or more to earn free tickets.</div>
           <div class="h-2 rounded-full bg-white/10 overflow-hidden mt-3">
             <div id="reward-bar" class="h-full rounded-full bg-orange-400 transition-all duration-300" style="width:0%"></div>
           </div>
@@ -357,7 +388,7 @@ $pageTitle   = 'Buy Data';
     </div>
 
     <!-- ───────────── RECENT ORDERS ───────────── -->
-    <div class="mt-10">
+    <div class="mt-10" id="recent">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold">Recent data orders</h2>
         <span class="text-xs text-gray-500">Last 10</span>
@@ -424,6 +455,8 @@ window.ZF_REWARD = <?= json_encode([
     $('#sum-phone').textContent = phoneEl.value.trim() || '—';
     $('#sum-plan').textContent  = sel ? sel.dataset.name : '—';
     $('#sum-total').textContent = fmt(price);
+    $('#bar-plan').textContent  = sel ? sel.dataset.name : 'Select a plan';
+    $('#bar-total').textContent = fmt(price);
 
     const after = R.balance - price;
     $('#sum-after').textContent = sel ? (after >= 0 ? fmt(after) : 'Insufficient') : '—';
@@ -432,37 +465,48 @@ window.ZF_REWARD = <?= json_encode([
     if (warn) warn.classList.toggle('hidden', !(sel && price > R.balance));
     if (!submitting && btn && document.querySelector('input[name=plan_code]')) btn.disabled = !!(sel && price > R.balance);
 
-    // Rewards: running balance carries leftover spend between purchases.
+    // Ticket rewards: leftover spend carries between purchases.
     const total = R.progress + price;
     const codes = Math.floor(total / R.unit);
     const rest  = total - codes * R.unit;
     $('#reward-bar').style.width = Math.min(100, (rest / R.unit) * 100) + '%';
     $('#reward-progress-label').textContent = fmt(rest);
     if (codes > 0) {
-      $('#reward-text').innerHTML = "You'll earn <strong class=\"text-orange-300\">" + codes + ' free code' + (codes > 1 ? 's' : '') + '</strong> with this purchase.';
+      $('#reward-text').innerHTML = "You'll earn <strong class=\"text-orange-300\">" + codes + ' free ticket' + (codes > 1 ? 's' : '') + '</strong> with this purchase.';
     } else if (R.progress > 0 || price > 0) {
-      $('#reward-text').textContent = 'Spend ' + fmt(R.unit - rest) + ' more to earn your next free code.';
+      $('#reward-text').textContent = 'Spend ' + fmt(R.unit - rest) + ' more to earn your next free ticket.';
     }
   }
 
   document.querySelectorAll('input[name=plan_code]').forEach((r) => r.addEventListener('change', update));
   phoneEl.addEventListener('input', update);
 
-  // Plan type filter chips (e.g. SME / Gifting / Corporate)
+  // Use my own number
+  const mine = $('#use-mine');
+  if (mine) mine.addEventListener('click', () => {
+    if (mine.dataset.phone) { phoneEl.value = mine.dataset.phone; update(); }
+  });
+
+  // Grid / list toggle
+  const grid = $('#plan-grid');
+  function view(list) {
+    if (!grid) return;
+    grid.classList.toggle('list', list);
+    grid.classList.toggle('grid-cols-3', !list);
+    $('#v-list').className = list ? 'text-orange-400' : 'text-gray-600';
+    $('#v-grid').className = list ? 'text-gray-600' : 'text-orange-400';
+  }
+  $('#v-grid').addEventListener('click', () => view(false));
+  $('#v-list').addEventListener('click', () => view(true));
+
+  // Plan type tabs
   document.querySelectorAll('.type-chip').forEach((chip) => chip.addEventListener('click', () => {
     const t = chip.dataset.type;
-    document.querySelectorAll('.type-chip').forEach((c) => {
-      const on = c === chip;
-      c.classList.toggle('border-orange-400', on);
-      c.classList.toggle('bg-orange-500/15', on);
-      c.classList.toggle('border-white/10', !on);
-      c.classList.toggle('bg-white/[0.04]', !on);
-    });
+    document.querySelectorAll('.type-chip').forEach((c) => c.classList.toggle('on', c === chip));
     document.querySelectorAll('.plan-card').forEach((card) => {
       const show = !t || card.dataset.type === t;
       card.classList.toggle('hidden', !show);
-      // a hidden-but-checked radio must not be submitted by accident
-      if (!show) card.querySelector('input').checked = false;
+      if (!show) card.querySelector('input').checked = false; // never submit a hidden plan
     });
     update();
   }));
