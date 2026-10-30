@@ -78,9 +78,3 @@ function generateDepositReference(int $userId): string {
     return 'ZF-DEP-' . $userId . '-' . time() . '-' . strtoupper(bin2hex(random_bytes(3)));
 }
 
-/**
- * Format a kobo integer as a Naira display string.
- */
-function formatNaira($kobo): string {
-    return '₦' . number_format(((int) $kobo) / 100, 2);
-}

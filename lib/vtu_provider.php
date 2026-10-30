@@ -6,8 +6,8 @@
  * Config required (config/config.php or .env):
  *   INSTANTMOBILE_API_KEY   = your API key (Profile > API, needs the API plan)
  *   INSTANTMOBILE_BASE_URL  = optional, defaults to https://instantmobile.com.ng/api/v1.php
- * Profit rules (data tiers, per-plan overrides, airtime %) are NOT config constants any more:
- *   admins edit them at admin/pricing.php (stored in site_settings).
+ * Pricing is NOT config: admins set the airtime fee and the data profit at admin/pricing.php
+ *   (stored in site_settings, see lib/settings.php).
  *
  * Every dispatch function returns:
  *   success            bool    delivered, confirmed by provider
@@ -22,8 +22,7 @@
 require_once __DIR__ . '/../config/config.php';
 
 if (!defined('INSTANTMOBILE_BASE_URL')) define('INSTANTMOBILE_BASE_URL', 'https://instantmobile.com.ng/api/v1.php');
-// Your profit rules live in the database and are edited by admins at admin/pricing.php
-// (defaults + loader are in lib/settings.php).
+// Airtime fee and data profit live in the database, edited at admin/pricing.php (see lib/settings.php).
 require_once __DIR__ . '/settings.php';
 
 define('IM_PLANS_CACHE_FILE', __DIR__ . '/../storage/cache/instantmobile_data_plans.json');
@@ -178,12 +177,12 @@ function dispatchDataOrder(string $network, string $phone, string $planCode, int
 }
 
 /**
- * Your profit (kobo) on an airtime purchase: admin-set % of the face value.
- * Provider price (cost) = amount charged - profit. Set the % to the discount your
- * InstantMobile plan really gives you (admin/pricing.php).
+ * Flat service fee (kobo) added on top of an airtime purchase. The USER SEES this fee.
+ * Order is stored as: amount = airtime + fee (total charged), cost_amount = airtime sent to the provider,
+ * profit_amount = fee. (Any discount InstantMobile gives you on airtime is extra profit not tracked here.)
  */
-function airtimeProfitKobo(int $amountKobo): int {
-    return (int) round($amountKobo * getAirtimeProfitPercent() / 100);
+function airtimeFeeKobo(): int {
+    return (int) round(getAirtimeFeeNaira() * 100);
 }
 
 // -----------------------------------------------------------
@@ -224,21 +223,9 @@ function imFetchPlans(): array {
     return $plans;
 }
 
-/** Your profit in naira for a plan with this provider price (per-plan override > tier > % above top tier). */
-function imProfitNaira(float $costNaira, string $planCode = ''): float {
-    $cfg = getDataProfitConfig();
-    if ($planCode !== '' && isset($cfg['overrides'][$planCode])) {
-        return $cfg['overrides'][$planCode];
-    }
-    foreach ($cfg['tiers'] as [$upTo, $profit]) {
-        if ($costNaira <= $upTo) return $profit;
-    }
-    return $costNaira * $cfg['percent_above'] / 100;
-}
-
-/** What the USER pays, in kobo: provider price + profit, rounded up to a whole naira. */
-function imSellingPriceKobo(float $costNaira, string $planCode = ''): int {
-    return (int) ceil($costNaira + imProfitNaira($costNaira, $planCode)) * 100;
+/** What the USER pays for a data plan, in kobo: provider price + the flat data profit, rounded up to a whole naira. */
+function imSellingPriceKobo(float $costNaira): int {
+    return (int) ceil($costNaira + getDataProfitNaira()) * 100;
 }
 
 function getDataPlans(): array {
@@ -270,9 +257,9 @@ function getDataPlans(): array {
                 'code'  => $p['code'],
                 'name'  => $p['name'],
                 'type'  => $p['type'] ?? '',
-                'price'  => imSellingPriceKobo((float) $p['cost'], $p['code']),  // what the USER pays (cost + profit), kobo
+                'price'  => imSellingPriceKobo((float) $p['cost']),  // what the USER pays (cost + profit), kobo
                 'cost'   => (int) round(((float) $p['cost']) * 100),    // what YOU pay the provider, kobo
-                'profit' => imSellingPriceKobo((float) $p['cost'], $p['code']) - (int) round(((float) $p['cost']) * 100),
+                'profit' => imSellingPriceKobo((float) $p['cost']) - (int) round(((float) $p['cost']) * 100),
             ];
         }
         usort($plans[$network], fn($a, $b) => $a['price'] <=> $b['price']);
