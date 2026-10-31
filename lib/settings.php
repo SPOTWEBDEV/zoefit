@@ -1,26 +1,22 @@
 <?php
 /**
- * Site settings stored in the database (table: site_settings), editable by admins
- * from admin/pricing.php. Falls back to the defaults below if a setting was never saved
- * or the table can't be read, so pricing never breaks.
+ * Site settings stored in the database (table: site_settings), edited by admins at admin/pricing.php.
  *
- * Keys used:
- *   data_profit_tiers      JSON {"tiers":[[200,20],[500,40],...],"percent_above":5}
- *   data_profit_overrides  JSON {"<providerPlanId>": profitNaira, ...}
- *   airtime_profit_percent number, % of the airtime face value you keep
+ * Three values, all whole naira:
+ *   airtime_fee_naira   Service fee added ON TOP of the airtime amount. The user SEES it.
+ *                       Airtime ₦200 + fee ₦30 => user pays ₦230.
+ *   data_profit_naira   Profit added to EVERY data plan's provider price. The user does NOT see it,
+ *                       only the total.  Provider price ₦430 + profit ₦30 => user pays ₦460.
+ *   reward_naira_per_code  Spend this much to earn 1 raffle ticket (default 100: ₦100 = 1 ticket).
+ *                       Leftover spend carries forward, see lib/rewards.php.
+ *
+ * Until an admin saves a value the default is 0 (no fee / no profit); the admin page warns about this.
+ * If the table can't be read, it also falls back to 0 so purchases never break.
  */
 
-// ---- Defaults (used until an admin saves their own) -------------------------
-if (!defined('DATA_PROFIT_TIERS_DEFAULT')) define('DATA_PROFIT_TIERS_DEFAULT', [
-    //  plan price up to (₦), your profit (₦)
-    [  200,  20 ],
-    [  500,  40 ],
-    [ 1000,  70 ],
-    [ 2000, 120 ],
-    [ 5000, 250 ],
-]);
-if (!defined('DATA_PROFIT_PERCENT_ABOVE_DEFAULT')) define('DATA_PROFIT_PERCENT_ABOVE_DEFAULT', 5);
-if (!defined('AIRTIME_PROFIT_PERCENT_DEFAULT'))    define('AIRTIME_PROFIT_PERCENT_DEFAULT', 2);
+if (!defined('AIRTIME_FEE_NAIRA_DEFAULT')) define('AIRTIME_FEE_NAIRA_DEFAULT', 0);
+if (!defined('DATA_PROFIT_NAIRA_DEFAULT')) define('DATA_PROFIT_NAIRA_DEFAULT', 0);
+if (!defined('REWARD_NAIRA_PER_CODE_DEFAULT')) define('REWARD_NAIRA_PER_CODE_DEFAULT', 100);
 
 /** All settings as key => string, loaded once per request. Pass true to reload after a save. */
 function siteSettings(bool $refresh = false): array {
@@ -46,49 +42,28 @@ function saveSiteSetting(string $key, string $value, ?int $adminId = null): void
     )->execute([$key, $value, $adminId]);
 }
 
-/**
- * Data profit rules.
- * @return array{tiers: list<array{0:float,1:float}>, percent_above: float, overrides: array<string,float>}
- */
-function getDataProfitConfig(): array {
-    $s = siteSettings();
-
-    $tiers   = DATA_PROFIT_TIERS_DEFAULT;
-    $percent = (float) DATA_PROFIT_PERCENT_ABOVE_DEFAULT;
-    if (isset($s['data_profit_tiers'])) {
-        $d = json_decode($s['data_profit_tiers'], true);
-        if (is_array($d) && !empty($d['tiers']) && is_array($d['tiers'])) {
-            $clean = [];
-            foreach ($d['tiers'] as $t) {
-                if (is_array($t) && count($t) === 2 && is_numeric($t[0]) && is_numeric($t[1]) && $t[0] > 0 && $t[1] >= 0) {
-                    $clean[] = [(float) $t[0], (float) $t[1]];
-                }
-            }
-            if ($clean) {
-                usort($clean, fn($a, $b) => $a[0] <=> $b[0]);
-                $tiers = $clean;
-            }
-            if (isset($d['percent_above']) && is_numeric($d['percent_above']) && $d['percent_above'] >= 0) {
-                $percent = (float) $d['percent_above'];
-            }
-        }
-    }
-
-    $overrides = [];
-    if (isset($s['data_profit_overrides'])) {
-        $o = json_decode($s['data_profit_overrides'], true);
-        if (is_array($o)) {
-            foreach ($o as $planId => $profit) {
-                if (is_numeric($profit) && $profit >= 0) $overrides[(string) $planId] = (float) $profit;
-            }
-        }
-    }
-
-    return ['tiers' => $tiers, 'percent_above' => $percent, 'overrides' => $overrides];
+/** True once an admin has saved this setting at least once. */
+function siteSettingIsSet(string $key): bool {
+    return array_key_exists($key, siteSettings());
 }
 
-/** % of airtime face value you keep as profit. */
-function getAirtimeProfitPercent(): float {
-    $v = siteSettings()['airtime_profit_percent'] ?? null;
-    return ($v !== null && is_numeric($v) && $v >= 0) ? (float) $v : (float) AIRTIME_PROFIT_PERCENT_DEFAULT;
+function readNairaSetting(string $key, float $default): float {
+    $v = siteSettings()[$key] ?? null;
+    return ($v !== null && is_numeric($v) && $v >= 0) ? (float) $v : $default;
+}
+
+/** Flat service fee (naira) added to every airtime purchase. Shown to the user. */
+function getAirtimeFeeNaira(): float {
+    return readNairaSetting('airtime_fee_naira', (float) AIRTIME_FEE_NAIRA_DEFAULT);
+}
+
+/** Flat profit (naira) added to every data plan. Hidden from the user. */
+function getDataProfitNaira(): float {
+    return readNairaSetting('data_profit_naira', (float) DATA_PROFIT_NAIRA_DEFAULT);
+}
+
+/** Naira a customer must spend to earn 1 raffle ticket. Always a whole number of at least 1. */
+function getRewardNairaPerCode(): int {
+    $v = siteSettings()['reward_naira_per_code'] ?? null;
+    return ($v !== null && ctype_digit((string) $v) && (int) $v >= 1) ? (int) $v : (int) REWARD_NAIRA_PER_CODE_DEFAULT;
 }

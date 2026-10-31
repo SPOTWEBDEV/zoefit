@@ -5,8 +5,6 @@ require_once __DIR__ . '/../lib/paystack.php';
 require_once __DIR__ . '/../lib/vtu_provider.php';
 require_once __DIR__ . '/../lib/rewards.php';
 
-
-
 $auth   = requireUser();
 $userId = $auth['id'];
 $db     = getDB();
@@ -52,7 +50,14 @@ if (isPost()) {
             $errors[] = 'Please enter a whole-naira amount.';
         }
 
-        $amountKobo = (int) round($amountNaira * 100);
+        $airtimeKobo = (int) round($amountNaira * 100);   // airtime the user receives
+        $feeKobo     = airtimeFeeKobo();                  // service fee, shown to the user
+        $amountKobo  = $airtimeKobo + $feeKobo;           // TOTAL charged to the wallet
+
+        if (!$errors && (int) ($_POST['expected_total'] ?? 0) !== $amountKobo) {
+            // The total on the user's screen is not the current total (admin changed the fee).
+            $errors[] = 'The service fee has just changed. Your new total is ' . formatNaira($amountKobo) . '. Please review and try again.';
+        }
 
         if (!$errors && $amountKobo > $walletBalance) {
             $errors[] = 'Insufficient wallet balance. Please deposit more funds.';
@@ -80,9 +85,9 @@ if (isPost()) {
 
                     $newBalance = $lockedBalance - $amountKobo;
 
-                    // amount = total charged to the user = cost_amount (provider price) + profit_amount (site profit)
-                    $profitKobo = airtimeProfitKobo($amountKobo);
-                    $costKobo   = $amountKobo - $profitKobo;
+                    // amount = total charged = cost_amount (airtime sent to provider) + profit_amount (service fee)
+                    $profitKobo = $feeKobo;
+                    $costKobo   = $airtimeKobo;
 
                     $orderStmt = $db->prepare("INSERT INTO orders (user_id, type, network, phone, amount, cost_amount, profit_amount, reference, status)
                         VALUES (?,?,?,?,?,?,?,?,'pending')");
@@ -93,24 +98,25 @@ if (isPost()) {
                         (user_id, type, category, amount, balance_after, reference_type, reference_id, description)
                         VALUES (?,?,?,?,?,?,?,?)")
                        ->execute([$userId, 'debit', 'airtime_purchase', $amountKobo, $newBalance, 'order', $orderId,
-                                  "Airtime purchase - {$networks[$networkInput]} - " . formatPhone($normalizedPhone)]);
+                                  "Airtime purchase - {$networks[$networkInput]} - " . formatPhone($normalizedPhone)
+                                  . ($feeKobo ? ' (incl. ' . formatNaira($feeKobo) . ' fee)' : '')]);
 
                     $db->commit();
                     $walletBalance = $newBalance;
 
                     // Attempt delivery outside the DB transaction (network call).
-                    $result = dispatchAirtimeOrder($networkInput, $normalizedPhone, $amountKobo, $reference);
+                    $result = dispatchAirtimeOrder($networkInput, $normalizedPhone, $airtimeKobo, $reference);   // provider gets the airtime value only, never the fee
 
                     if ($result['success']) {
                         $db->prepare("UPDATE orders SET status='success', provider=?, provider_reference=?, provider_response=? WHERE id=?")
                            ->execute([$result['provider'], $result['provider_reference'], $result['raw'], $orderId]);
 
-                        createNotification($userId, 'Airtime Purchase Successful', formatNaira($amountKobo) . ' airtime sent to ' . formatPhone($normalizedPhone) . '.', 'success');
-                        auditLog('user', $userId, 'airtime_purchase_success', "Airtime {$amountKobo} kobo to {$normalizedPhone}, ref {$reference}", 'order', $orderId);
+                        createNotification($userId, 'Airtime Purchase Successful', formatNaira($airtimeKobo) . ' airtime sent to ' . formatPhone($normalizedPhone) . '.', 'success');
+                        auditLog('user', $userId, 'airtime_purchase_success', "Airtime {$airtimeKobo} kobo + fee {$feeKobo} kobo to {$normalizedPhone}, ref {$reference}", 'order', $orderId);
 
                         $rewardCodes = grantPurchaseReward($db, $userId, $orderId, $amountKobo);
 
-                        $success = 'Airtime purchase successful! ' . formatNaira($amountKobo) . ' sent to ' . formatPhone($normalizedPhone) . '.'
+                        $success = 'Airtime purchase successful! ' . formatNaira($airtimeKobo) . ' sent to ' . formatPhone($normalizedPhone) . '.'
                                  . ($rewardCodes ? " 🎟️ You earned {$rewardCodes} free raffle code" . ($rewardCodes > 1 ? 's' : '') . '!' : '');
                         $amountInput = '';
 
@@ -152,13 +158,14 @@ if (isPost()) {
             } catch (\Exception $ex) {
                 if ($db->inTransaction()) $db->rollBack();
                 error_log('[AIRTIME] ' . $ex->getMessage());
-                $errors[] = 'Something went wrong processing your order. Please check your order history before trying again.' . $ex->getMessage();
+                $errors[] = 'Something went wrong processing your order. Please check your order history before trying again.';
             }
         }
     }
 }
 
 $rewardProgressKobo = getRewardProgressKobo($db, $userId);
+$airtimeFeeKobo     = airtimeFeeKobo();
 
 $recent = $db->prepare("SELECT * FROM orders WHERE user_id = ? AND type = 'airtime' ORDER BY created_at DESC LIMIT 10");
 $recent->execute([$userId]);
@@ -233,6 +240,7 @@ $pageTitle   = 'Buy Airtime';
       <!-- ───────────── FORM ───────────── -->
       <form method="POST" id="airtime-form" class="lg:col-span-3 card p-5 md:p-7 space-y-7" autocomplete="off">
         <?= csrfField() ?>
+        <input type="hidden" name="expected_total" id="expected-total" value="">
 
         <!-- Step 1 -->
         <section>
@@ -282,7 +290,10 @@ $pageTitle   = 'Buy Airtime';
                       class="quick-amt px-3.5 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/10 text-xs font-medium border border-white/10 whitespace-nowrap transition">₦<?= number_format($q) ?></button>
             <?php endforeach; ?>
           </div>
-          <p id="balance-warning" class="hidden text-xs text-amber-400 mt-3">This is more than your wallet balance. Deposit funds to continue.</p>
+          <?php if ($airtimeFeeKobo > 0): ?>
+            <p class="text-xs text-gray-400 mt-3">A service fee of <strong class="text-gray-200"><?= formatNaira($airtimeFeeKobo) ?></strong> is added to each airtime purchase.</p>
+          <?php endif; ?>
+          <p id="balance-warning" class="hidden text-xs text-amber-400 mt-3">Your total is more than your wallet balance. Deposit funds to continue.</p>
         </section>
 
         <button type="submit" id="submit-btn"
@@ -300,6 +311,9 @@ $pageTitle   = 'Buy Airtime';
             <div class="flex justify-between gap-4"><dt class="text-gray-400">Network</dt><dd class="font-medium" id="sum-network">—</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-400">Recipient</dt><dd class="font-medium truncate" id="sum-phone">—</dd></div>
             <div class="flex justify-between gap-4"><dt class="text-gray-400">Airtime value</dt><dd class="font-medium" id="sum-amount">₦0</dd></div>
+            <?php if ($airtimeFeeKobo > 0): ?>
+            <div class="flex justify-between gap-4"><dt class="text-gray-400">Service fee</dt><dd class="font-medium" id="sum-fee">₦0</dd></div>
+            <?php endif; ?>
             <div class="border-t border-white/10 pt-3 flex justify-between gap-4 items-baseline">
               <dt class="text-gray-300 font-medium">You pay</dt><dd class="text-xl font-bold text-orange-400" id="sum-total">₦0</dd>
             </div>
@@ -310,14 +324,14 @@ $pageTitle   = 'Buy Airtime';
         <div class="rounded-2xl p-5 md:p-6 border border-orange-400/25 bg-gradient-to-br from-orange-500/15 via-orange-500/5 to-transparent">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold flex items-center gap-2">🎟️ Purchase rewards</h3>
-            <span class="text-[11px] px-2 py-0.5 rounded-full bg-orange-400/15 text-orange-300 font-medium">₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> = 1 code</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-orange-400/15 text-orange-300 font-medium">₦<?= number_format(getRewardNairaPerCode()) ?> = 1 code</span>
           </div>
-          <div class="text-sm" id="reward-text">Spend ₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> or more to earn free raffle codes.</div>
+          <div class="text-sm" id="reward-text">Spend ₦<?= number_format(getRewardNairaPerCode()) ?> or more to earn free raffle codes.</div>
           <div class="h-2 rounded-full bg-white/10 overflow-hidden mt-3">
             <div id="reward-bar" class="h-full rounded-full bg-orange-400 transition-all duration-300" style="width:0%"></div>
           </div>
           <div class="flex justify-between text-[11px] text-gray-400 mt-1.5">
-            <span id="reward-progress-label">₦0</span><span>₦<?= number_format(REWARD_NAIRA_PER_CODE) ?></span>
+            <span id="reward-progress-label">₦0</span><span>₦<?= number_format(getRewardNairaPerCode()) ?></span>
           </div>
         </div>
 
@@ -355,6 +369,9 @@ $pageTitle   = 'Buy Airtime';
             </div>
             <div class="text-right flex-shrink-0">
               <div class="text-sm font-semibold"><?= formatNaira($o['amount']) ?></div>
+              <?php if (!empty($o['profit_amount']) && (int) $o['cost_amount'] + (int) $o['profit_amount'] === (int) $o['amount']): ?>
+                <div class="text-[11px] text-gray-500"><?= formatNaira($o['cost_amount']) ?> + <?= formatNaira($o['profit_amount']) ?> fee</div>
+              <?php endif; ?>
               <span class="badge <?= $badgeClass ?>"><?= e(ucfirst($o['status'])) ?></span>
             </div>
           </div>
@@ -374,19 +391,16 @@ $pageTitle   = 'Buy Airtime';
 
 <script>
 window.ZF_REWARD = <?= json_encode([
-    'unit'     => REWARD_NAIRA_PER_CODE,
+    'unit'     => getRewardNairaPerCode(),
     'progress' => $rewardProgressKobo / 100,
     'balance'  => $walletBalance / 100,
+    'fee'      => $airtimeFeeKobo / 100,
 ]) ?>;
-
- window.APP_URL = '<?= APP_URL ?>';
-   console.log('APP_URL', window.APP_URL);
-
 </script>
+<script>window.APP_URL = '<?= APP_URL ?>';</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 (function () {
-  
   const R = window.ZF_REWARD;
   const $ = (s) => document.querySelector(s);
   const fmt = (n) => '₦' + Number(n).toLocaleString('en-NG');
@@ -399,24 +413,32 @@ window.ZF_REWARD = <?= json_encode([
 
     $('#sum-network').textContent = net ? net.dataset.label : '—';
     $('#sum-phone').textContent   = phoneEl.value.trim() || '—';
+    // Airtime value + visible service fee = what the user pays
+    const fee   = amt > 0 ? R.fee : 0;
+    const pay   = amt + fee;
     $('#sum-amount').textContent  = fmt(amt);
-    $('#sum-total').textContent   = fmt(amt);
+    if ($('#sum-fee')) $('#sum-fee').textContent = fmt(fee);
+    $('#sum-total').textContent   = fmt(pay);
+    $('#expected-total').value    = Math.round(pay * 100);   // server rejects the order if the fee changed since this page loaded
 
-    const after = R.balance - amt;
+    const after = R.balance - pay;
     $('#sum-after').textContent = amt ? (after >= 0 ? fmt(after) : 'Insufficient') : '—';
     $('#sum-after').className   = after < 0 && amt ? 'text-amber-400' : 'text-gray-400';
-    $('#balance-warning').classList.toggle('hidden', !(amt > R.balance));
-    if (!submitting) btn.disabled = amt > R.balance;
+    $('#balance-warning').classList.toggle('hidden', !(pay > R.balance));
+    if (!submitting) {
+      btn.disabled = pay > R.balance;
+      $('#submit-label').textContent = amt ? 'Pay ' + fmt(pay) : 'Buy Airtime';
+    }
 
-    // Rewards: running balance carries leftover spend between purchases.
-    const total = R.progress + amt;
+    // Rewards: running balance carries leftover spend between purchases (counted on what the user pays).
+    const total = R.progress + pay;
     const codes = Math.floor(total / R.unit);
     const rest  = total - codes * R.unit;
     $('#reward-bar').style.width = Math.min(100, (rest / R.unit) * 100) + '%';
     $('#reward-progress-label').textContent = fmt(rest);
     if (codes > 0) {
       $('#reward-text').innerHTML = "You'll earn <strong class=\"text-orange-300\">" + codes + ' free code' + (codes > 1 ? 's' : '') + '</strong> with this purchase.';
-    } else if (R.progress > 0 || amt > 0) {
+    } else if (R.progress > 0 || pay > 0) {
       $('#reward-text').textContent = 'Spend ' + fmt(R.unit - rest) + ' more to earn your next free code.';
     }
 

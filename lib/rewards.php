@@ -2,7 +2,8 @@
 /**
  * Purchase rewards: users earn raffle codes for airtime/data purchases.
  *
- *   ₦100 spent = 1 raffle code   (change REWARD_NAIRA_PER_CODE to adjust)
+ *   ₦100 spent = 1 raffle code by default. The admin sets the amount at admin/pricing.php
+ *   (stored in site_settings, read with getRewardNairaPerCode()).
  *
  * RUNNING BALANCE: spend that doesn't reach a full ₦100 is carried forward per user in
  * reward_balances.progress_kobo. ₦60 + ₦60 => 1 code on the second order, ₦20 carried.
@@ -16,12 +17,13 @@
  *    Failures are logged; the order stays un-rewarded and the backfill query picks it up.
  */
 
-if (!defined('REWARD_NAIRA_PER_CODE'))      define('REWARD_NAIRA_PER_CODE', 100);
+require_once __DIR__ . '/settings.php';
+
 if (!defined('REWARD_MAX_CODES_PER_ORDER')) define('REWARD_MAX_CODES_PER_ORDER', 100); // safety cap; excess carries forward
 if (!defined('REWARD_SYSTEM_ADMIN_ID'))     define('REWARD_SYSTEM_ADMIN_ID', 1);       // codes.generated_by (no FK), same as generate-code.php
 
 function rewardUnitKobo(): int {
-    return REWARD_NAIRA_PER_CODE * 100;
+    return getRewardNairaPerCode() * 100;
 }
 
 /** Kobo the user has spent toward their next code (always < one unit unless the cap carried excess). */

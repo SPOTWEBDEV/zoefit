@@ -188,3 +188,10 @@ function requireSuperAdmin(): array {
   }
   return ['id'=>(int)$_SESSION['super_admin_id'],'name'=>$_SESSION['super_admin_name']??''];
 }
+
+/**
+ * Format a kobo integer as a Naira display string.
+ */
+function formatNaira($kobo): string {
+    return '₦' . number_format(((int) $kobo) / 100, 2);
+}
