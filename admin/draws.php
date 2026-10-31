@@ -1,18 +1,15 @@
 <?php
 // admin/draws.php
+// Draw list. Edit / End / Cancel now live on admin/draw-manage.php (Details page).
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../lib/draw_trigger.php';
+require_once __DIR__ . '/../lib/draw_form.php';
 $auth = requireAdmin(); $adminId = $auth['id'];
 $db = getDB(); $msg = $err = '';
+$failed = null;   // 'create' when validation failed: the modal reopens with the admin's input kept
 
-// ── Pre-load edit draw BEFORE any POST so the modal data
-//    is always available regardless of form submissions
-$editDraw = null;
-if (isset($_GET['edit']) && ($eid = (int)$_GET['edit'])) {
-    $s = $db->prepare("SELECT * FROM draws WHERE id=?");
-    $s->execute([$eid]);
-    $editDraw = $s->fetch() ?: null;
-}
+$TYPES = ['timed' => 'Timed draw', 'entries' => 'Entry-triggered'];
 
 // ── POST actions ───────────────────────────────────────────
 if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
@@ -21,70 +18,20 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
 
     // ── Create ─────────────────────────────────────────────
     if ($action === 'create') {
-        $title = trim($_POST['title']         ?? '');
-        $desc  = trim($_POST['description']   ?? '');
-        $rules = trim($_POST['rules']         ?? '');
-        $prize = trim($_POST['prize_details'] ?? '');
-        $cat   = trim($_POST['category']      ?? '');
-        $start = $_POST['start_date']         ?? '';
-        $end   = $_POST['end_date']            ?? '';
-
-        if (!$title || !$start || !$end) {
-            $err = 'Title, start date and end date are required.';
-        } elseif (strtotime($end) <= strtotime($start)) {
-            $err = 'End date must be after start date.';
-        } else {
-            $banner = _uploadBanner();
+        $type = isset($TYPES[$_POST['draw_type'] ?? '']) ? $_POST['draw_type'] : 'timed';
+        [$err, $v] = validateDrawForm($type);
+        if ($err) $failed = 'create';
+        if (!$err) {
+            $banner = uploadDrawBanner();
             $db->prepare(
                 "INSERT INTO draws
                    (title,description,rules,prize_details,category,banner_image,
-                    status,start_date,end_date,created_by)
-                 VALUES (?,?,?,?,?,?,'pending',?,?,?)"
-            )->execute([$title,$desc,$rules,$prize,$cat,$banner,$start,$end,$adminId]);
+                    status,start_date,end_date,draw_type,target_entries,created_by)
+                 VALUES (?,?,?,?,?,?,'pending',?,?,?,?,?)"
+            )->execute([$v['title'],$v['desc'],$v['rules'],$v['prize'],$v['cat'],$banner,$v['start'],$v['end'],$type,$v['target'],$adminId]);
             $newId = (int)$db->lastInsertId();
-            auditLog('admin',$adminId,'create_draw',"Draw '$title' created",'draw',$newId);
-            $msg = "Draw <strong>".e($title)."</strong> created as Pending.";
-        }
-
-    // ── Edit ───────────────────────────────────────────────
-    } elseif ($action === 'edit' && $did) {
-        $chk = $db->prepare("SELECT status FROM draws WHERE id=?");
-        $chk->execute([$did]); $status = $chk->fetchColumn();
-
-        if (in_array($status, ['completed','cancelled'])) {
-            $err = 'Completed or cancelled draws cannot be edited.';
-        } else {
-            $title = trim($_POST['title']         ?? '');
-            $desc  = trim($_POST['description']   ?? '');
-            $rules = trim($_POST['rules']         ?? '');
-            $prize = trim($_POST['prize_details'] ?? '');
-            $cat   = trim($_POST['category']      ?? '');
-            $start = $_POST['start_date']         ?? '';
-            $end   = $_POST['end_date']            ?? '';
-
-            if (!$title || !$start || !$end) {
-                $err = 'Title, start date and end date are required.';
-            } elseif (strtotime($end) <= strtotime($start)) {
-                $err = 'End date must be after start date.';
-            } else {
-                $banner = _uploadBanner();
-                if ($banner) {
-                    $db->prepare(
-                        "UPDATE draws SET title=?,description=?,rules=?,prize_details=?,
-                         category=?,banner_image=?,start_date=?,end_date=?,updated_at=NOW()
-                         WHERE id=?"
-                    )->execute([$title,$desc,$rules,$prize,$cat,$banner,$start,$end,$did]);
-                } else {
-                    $db->prepare(
-                        "UPDATE draws SET title=?,description=?,rules=?,prize_details=?,
-                         category=?,start_date=?,end_date=?,updated_at=NOW()
-                         WHERE id=?"
-                    )->execute([$title,$desc,$rules,$prize,$cat,$start,$end,$did]);
-                }
-                auditLog('admin',$adminId,'edit_draw',"Draw #$did updated",'draw',$did);
-                $msg     = 'Draw updated successfully.';
-                $editDraw = null; // clear so modal does not re-open
-            }
+            auditLog('admin',$adminId,'create_draw',"Draw '{$v['title']}' created ($type" . ($v['target'] ? ", target {$v['target']} entries" : '') . ")",'draw',$newId);
+            $msg = "Draw <strong>".e($v['title'])."</strong> created as Pending.";
         }
 
     // ── Activate ───────────────────────────────────────────
@@ -96,24 +43,6 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
         auditLog('admin',$adminId,'activate_draw',"Draw #$did manually activated",'draw',$did);
         $msg = 'Draw activated. Users can now enter.';
 
-    // ── End draw ───────────────────────────────────────────
-    } elseif ($action === 'end' && $did) {
-        $db->prepare(
-            "UPDATE draws SET status='ended',ended_by=?,ended_at=NOW(),updated_at=NOW()
-             WHERE id=? AND status='active'"
-        )->execute([$adminId,$did]);
-        auditLog('admin',$adminId,'end_draw',"Draw #$did manually ended",'draw',$did);
-        $msg = 'Draw ended. <a href="'.APP_URL.'/admin/select-winner.php?id='.$did.'" class="underline font-semibold">→ Select Winner Now</a>';
-
-    // ── Cancel ─────────────────────────────────────────────
-    } elseif ($action === 'cancel' && $did) {
-        $db->prepare(
-            "UPDATE draws SET status='cancelled',updated_at=NOW()
-             WHERE id=? AND status NOT IN('completed','cancelled')"
-        )->execute([$did]);
-        auditLog('admin',$adminId,'cancel_draw',"Draw #$did cancelled",'draw',$did);
-        $msg = 'Draw cancelled.';
-
     // ── Delete (pending only) ──────────────────────────────
     } elseif ($action === 'delete' && $did) {
         $db->prepare("DELETE FROM draws WHERE id=? AND status='pending'")->execute([$did]);
@@ -122,11 +51,21 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     }
 }
 
+// ── Safety net: end any entry draw that already reached its target ──
+$autoEnded = sweepEntryTargetDraws($db);
+if ($autoEnded > 0 && !$msg) {
+    $msg = "<strong>$autoEnded</strong> draw" . ($autoEnded > 1 ? 's' : '') . ' reached the entry target and ' . ($autoEnded > 1 ? 'are' : 'is') . ' waiting for you to select a winner.';
+}
+
 // ── Load draws list ────────────────────────────────────────
 $tab = $_GET['tab'] ?? 'all';
 if (!in_array($tab, ['all','pending','active','ended','completed','cancelled'])) $tab = 'all';
-$where  = $tab !== 'all' ? "status=?" : "1=1";
-$params = $tab !== 'all' ? [$tab]     : [];
+$typeF = isset($TYPES[$_GET['type'] ?? '']) ? $_GET['type'] : '';
+
+$conds = []; $params = [];
+if ($tab !== 'all') { $conds[] = "status=?";    $params[] = $tab; }
+if ($typeF !== '')  { $conds[] = "draw_type=?"; $params[] = $typeF; }
+$where = $conds ? implode(' AND ', $conds) : '1=1';
 
 $draws = $db->prepare(
     "SELECT d.*,
@@ -141,19 +80,19 @@ $draws = $draws->fetchAll();
 $tabCounts = [];
 foreach (['pending','active','ended','completed','cancelled'] as $t)
     $tabCounts[$t] = (int)$db->query("SELECT COUNT(*) FROM draws WHERE status='$t'")->fetchColumn();
+$awaiting = (int)$db->query("SELECT COUNT(*) FROM draws WHERE status='ended' AND winner_user_id IS NULL")->fetchColumn();
 
-// ── Banner upload helper ───────────────────────────────────
-function _uploadBanner(): ?string {
-    if (empty($_FILES['banner_image']['name'])) return null;
-    $ext = strtolower(pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, ['jpg','jpeg','png','webp','gif'])) return null;
-    $name = 'banner-'.uniqid().'.'.$ext;
-    move_uploaded_file($_FILES['banner_image']['tmp_name'], UPLOAD_PATH.$name);
-    return $name;
-}
+// URL builder that keeps the current tab + type filter
+$u = function (array $over = []) use ($tab, $typeF) {
+    $q = array_filter(array_merge(['tab' => $tab === 'all' ? '' : $tab, 'type' => $typeF], $over), fn($x) => $x !== '' && $x !== null);
+    return '?' . http_build_query($q);
+};
 
 $aPage = 'draws';
-$categories = ['Daily Patronage','Government Ticket','Transport','Dashboard Loyalty','Vendor Campaign','Grand Prize'];
+/** Value to show in a form field: what the admin just typed if that form failed validation, else the default. */
+$old = fn(string $form, string $key, $default = '') => ($failed === $form && isset($_POST[$key])) ? $_POST[$key] : $default;
+$categories = drawCategories();
+$tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','completed'=>'#94a3b8','cancelled'=>'#f87171'];
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -161,385 +100,321 @@ $categories = ['Daily Patronage','Government Ticket','Transport','Dashboard Loya
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title>Draws — <?= APP_NAME ?> Admin</title>
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/app.css">
-  <style>*{font-family:'Poppins',sans-serif!important}</style>
 </head>
-<body class="bg-[#0a0f1a] text-white">
+<body class="bg-[#0a0f1a] text-white antialiased">
+<?php include __DIR__ . '/../components/saas-ui.php'; ?>
 <?php include __DIR__ . '/../components/admin-sidebar.php'; ?>
 
 <div class="main-content">
   <div class="topbar">
-    <button onclick="toggleSidebar()" class="md:hidden text-gray-400 text-2xl mr-3">☰</button>
-    <h1 class="text-xl font-bold">Draw Management</h1>
-    <button onclick="Modal.open('create-modal')" class="btn btn-primary btn-sm">+ Create Draw</button>
+    <button onclick="toggleSidebar()" class="md:hidden text-gray-400 text-2xl mr-3" aria-label="Menu">☰</button>
+    <div class="min-w-0">
+      <h1 class="text-lg font-semibold leading-tight">Draws</h1>
+      <p class="text-xs text-slate-400 hidden sm:block">Create, schedule and monitor your draws</p>
+    </div>
+    <button onclick="Modal.open('create-modal')" class="s-btn s-btn-primary ml-auto"><?= ico('plus') ?> Create draw</button>
   </div>
 
-  <div class="p-4 md:p-6">
+  <div class="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
 
     <!-- Flash messages -->
     <?php if ($msg): ?>
-    <div class="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-4 mb-5 text-sm">
-      ✅ <?= $msg ?>
-    </div>
+    <div class="s-alert s-alert-success" role="status"><?= ico('check-circle', 'w-5 h-5 flex-shrink-0 mt-px') ?><div><?= $msg ?></div></div>
     <?php endif; ?>
-    <?php if ($err): ?>
-    <div class="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl p-4 mb-5 text-sm">
-      ❌ <?= e($err) ?>
-    </div>
+    <?php if ($err && !$failed): ?>
+    <div class="s-alert s-alert-error" role="alert"><?= ico('alert', 'w-5 h-5 flex-shrink-0 mt-px') ?><div><?= e($err) ?></div></div>
     <?php endif; ?>
 
-    <!-- Status flow guide -->
-    <div class="rounded-xl p-4 mb-5 text-xs leading-relaxed"
-         style="background:rgba(6,182,212,.05);border:1px solid rgba(6,182,212,.12)">
-      <strong class="text-cyan-400">Draw Flow:</strong>
-      <span class="text-yellow-400">Pending</span> →
-      <span class="text-green-400">Active</span>
-      <span class="text-gray-500">(admin activates or cron auto-starts)</span> →
-      <span class="text-orange-400">Ended</span>
-      <span class="text-gray-500">(admin ends or cron auto-ends)</span> →
-      <span class="text-purple-400">Winner Selected</span>
-      <span class="text-gray-500">(admin enters machine number)</span> →
-      <span class="text-gray-400">Completed</span>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div class="s-card p-4 md:p-5 flex items-center gap-3.5">
+        <div class="s-stat-icon bg-green-500/10 text-green-400"><?= ico('bolt', 'w-[18px] h-[18px]') ?></div>
+        <div><div class="s-eyebrow">Live now</div><div class="text-2xl font-semibold leading-tight"><?= number_format($tabCounts['active']) ?></div></div>
+      </div>
+      <div class="s-card p-4 md:p-5 flex items-center gap-3.5">
+        <div class="s-stat-icon bg-yellow-500/10 text-yellow-400"><?= ico('clock', 'w-[18px] h-[18px]') ?></div>
+        <div><div class="s-eyebrow">Pending</div><div class="text-2xl font-semibold leading-tight"><?= number_format($tabCounts['pending']) ?></div></div>
+      </div>
+      <a href="<?= e($u(['tab'=>'ended'])) ?>" class="s-card s-card-hover p-4 md:p-5 flex items-center gap-3.5 <?= $awaiting > 0 ? '!border-orange-400/40' : '' ?>">
+        <div class="s-stat-icon bg-orange-500/10 text-orange-400"><?= ico('trophy', 'w-[18px] h-[18px]') ?></div>
+        <div><div class="s-eyebrow">Awaiting winner</div><div class="text-2xl font-semibold leading-tight <?= $awaiting > 0 ? 'text-orange-400' : '' ?>"><?= number_format($awaiting) ?></div></div>
+      </a>
+      <div class="s-card p-4 md:p-5 flex items-center gap-3.5">
+        <div class="s-stat-icon bg-slate-400/10 text-slate-300"><?= ico('check-circle', 'w-[18px] h-[18px]') ?></div>
+        <div><div class="s-eyebrow">Completed</div><div class="text-2xl font-semibold leading-tight"><?= number_format($tabCounts['completed']) ?></div></div>
+      </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="flex gap-2 mb-5 flex-wrap">
-      <a href="?tab=all" class="btn btn-sm <?= $tab==='all'?'btn-primary':'btn-secondary' ?>">
-        All <span class="text-xs ml-1 text-gray-400">(<?= array_sum($tabCounts) ?>)</span>
-      </a>
-      <?php $tabMeta=['pending'=>['⏳','text-yellow-400'],'active'=>['🟢','text-green-400'],'ended'=>['🔴','text-orange-400'],'completed'=>['✅','text-gray-400'],'cancelled'=>['❌','text-red-400']]; ?>
-      <?php foreach ($tabMeta as $t=>[$icon,$col]): ?>
-      <a href="?tab=<?= $t ?>" class="btn btn-sm <?= $tab===$t?'btn-primary':'btn-secondary' ?> flex items-center gap-1.5">
-        <?= $icon ?> <span class="<?= $col ?>"><?= ucfirst($t) ?></span>
-        <?php if (($tabCounts[$t]??0) > 0): ?>
-        <span class="<?= $tab===$t?'bg-white/25':'bg-orange-500' ?> text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-          <?= $tabCounts[$t] ?>
-        </span>
-        <?php endif; ?>
-      </a>
-      <?php endforeach; ?>
+    <!-- How the two types work -->
+    <details class="s-card group">
+      <summary class="cursor-pointer select-none list-none px-5 py-3.5 text-sm font-medium flex items-center justify-between">
+        <span class="flex items-center gap-2 text-slate-200"><?= ico('info', 'w-4 h-4 text-slate-400') ?> How the two draw types work</span>
+        <span class="text-slate-500 group-open:rotate-180 transition"><?= ico('chevron') ?></span>
+      </summary>
+      <div class="px-5 pb-5 grid md:grid-cols-2 gap-3 text-sm">
+        <div class="rounded-xl bg-white/[0.03] border border-white/10 p-4">
+          <div class="font-medium mb-1 flex items-center gap-2"><span class="text-cyan-300"><?= ico('clock') ?></span> Timed draw</div>
+          <p class="text-slate-400 text-xs leading-relaxed">Runs between a start and end date. It ends at the end date (automatically, or when you press End Draw on its Details page). Then you select the winner.</p>
+        </div>
+        <div class="rounded-xl bg-white/[0.03] border border-white/10 p-4">
+          <div class="font-medium mb-1 flex items-center gap-2"><span class="text-purple-300"><?= ico('target') ?></span> Entry-triggered draw</div>
+          <p class="text-slate-400 text-xs leading-relaxed">You set a number of entries, for example 20. The moment the draw reaches it, it closes by itself and shows as <span class="text-orange-400 font-medium">Awaiting winner</span>. A deadline is optional.</p>
+        </div>
+        <div class="md:col-span-2 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span class="font-medium text-slate-300">Flow:</span>
+          <?= sPill('pending') ?> <span>→</span> <?= sPill('active') ?> <span>→</span> <?= sPill('ended') ?> <span>(awaiting winner) →</span> <?= sPill('completed') ?>
+        </div>
+      </div>
+    </details>
+
+    <!-- Filters -->
+    <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+      <nav class="s-tabs flex-1" aria-label="Draw status">
+        <a href="<?= e($u(['tab'=>''])) ?>" class="s-tab <?= $tab==='all'?'on':'' ?>">All <span class="s-count"><?= array_sum($tabCounts) ?></span></a>
+        <?php foreach ($tabMeta as $t => $col): ?>
+        <a href="<?= e($u(['tab'=>$t])) ?>" class="s-tab <?= $tab===$t?'on':'' ?>">
+          <span class="w-2 h-2 rounded-full" style="background:<?= $col ?>"></span><?= ucfirst($t) ?>
+          <?php if (($tabCounts[$t] ?? 0) > 0): ?><span class="s-count"><?= $tabCounts[$t] ?></span><?php endif; ?>
+        </a>
+        <?php endforeach; ?>
+      </nav>
+      <div class="s-seg self-start lg:self-auto">
+        <?php foreach (['' => 'All types', 'timed' => 'Timed', 'entries' => 'Entry-triggered'] as $k => $l): ?>
+        <a href="<?= e($u(['type'=>$k])) ?>" class="<?= $typeF===$k ? 'on' : '' ?>"><?= $l ?></a>
+        <?php endforeach; ?>
+      </div>
     </div>
 
     <!-- Draws list -->
-    <div class="space-y-4">
+    <div class="space-y-3">
       <?php if (!$draws): ?>
-      <div class="card p-12 text-center">
-        <div class="text-5xl mb-4">🎯</div>
-        <div class="text-gray-500 mb-3">No draws found.</div>
-        <button onclick="Modal.open('create-modal')" class="btn btn-primary">+ Create First Draw</button>
+      <div class="s-card p-12 text-center">
+        <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center text-slate-400"><?= ico('inbox', 'w-6 h-6') ?></div>
+        <div class="font-medium mb-1">No draws found</div>
+        <div class="text-sm text-slate-400 mb-5">Try another filter, or create a new draw.</div>
+        <button onclick="Modal.open('create-modal')" class="s-btn s-btn-primary"><?= ico('plus') ?> Create draw</button>
       </div>
       <?php endif; ?>
 
-      <?php foreach ($draws as $d): ?>
-      <div class="card p-5">
+      <?php foreach ($draws as $d):
+        $isEntries = ($d['draw_type'] ?? 'timed') === 'entries';
+        $target    = (int)($d['target_entries'] ?? 0);
+        $ents      = (int)$d['entries'];
+        $pct       = $target > 0 ? min(100, (int)floor($ents / $target * 100)) : 0;
+        $reached   = $isEntries && $target > 0 && $ents >= $target;
+        $deadline  = drawHasDeadline($d['end_date']);
+        $detailUrl = APP_URL . '/admin/draw-manage.php?id=' . $d['id'];
+      ?>
+      <article class="s-card s-card-hover p-4 md:p-5">
         <div class="flex items-start gap-4">
 
           <!-- Banner thumb -->
-          <div class="w-20 h-16 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center text-3xl flex-shrink-0"
-               style="background:linear-gradient(135deg,#1a2235,#0d1118)">
+          <div class="s-thumb">
             <?php if ($d['banner_image'] && file_exists(UPLOAD_PATH.$d['banner_image'])): ?>
-            <img src="<?= APP_URL ?>/uploads/<?= e($d['banner_image']) ?>"
-                 class="w-full h-full object-cover" alt="">
-            <?php else: ?>🎯<?php endif; ?>
+            <img src="<?= APP_URL ?>/uploads/<?= e($d['banner_image']) ?>" class="w-full h-full object-cover" alt="">
+            <?php else: ?><?= ico($isEntries ? 'target' : 'clock', 'w-7 h-7') ?><?php endif; ?>
           </div>
 
           <div class="flex-1 min-w-0">
-            <!-- Title + badges -->
-            <div class="flex items-center gap-2 flex-wrap mb-1">
-              <h3 class="font-bold text-base"><?= e($d['title']) ?></h3>
-              <span class="badge <?= match($d['status']) {
-                'active'    => 'badge-success',
-                'pending'   => 'badge-warning',
-                'ended'     => 'badge-danger',
-                'completed' => 'badge-muted',
-                'cancelled' => 'badge-danger',
-                default     => 'badge-muted'
-              } ?>"><?= ucfirst($d['status']) ?></span>
-              <?php if ($d['category']): ?>
-              <span class="badge badge-info text-xs"><?= e($d['category']) ?></span>
-              <?php endif; ?>
-              <?php if ($d['status']==='active'): ?>
-              <span class="flex items-center gap-1 text-xs text-green-400">
-                <span class="pulse-dot w-2 h-2"></span> Live
+            <!-- Title + pills -->
+            <div class="flex items-center gap-x-2 gap-y-1.5 flex-wrap mb-2">
+              <h3 class="font-semibold text-[15px] leading-snug"><a href="<?= $detailUrl ?>" class="hover:text-orange-300 transition"><?= e($d['title']) ?></a></h3>
+              <?= sPill($d['status']) ?>
+              <span class="s-pill <?= $isEntries ? 's-pill-purple' : 's-pill-cyan' ?>">
+                <?= ico($isEntries ? 'target' : 'clock', 'w-3 h-3') ?> <?= $isEntries ? 'Entry-triggered' : 'Timed' ?>
               </span>
-              <?php endif; ?>
+              <?php if ($d['category']): ?><span class="s-pill s-pill-blue"><?= e($d['category']) ?></span><?php endif; ?>
               <?php if ($d['status']==='ended' && !$d['winner_user_id']): ?>
-              <span class="text-xs text-orange-400 font-semibold animate-pulse">⚡ Awaiting winner</span>
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-orange-400"><?= ico('bolt', 'w-3.5 h-3.5') ?> Awaiting winner</span>
               <?php endif; ?>
             </div>
 
             <!-- Meta -->
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
-              <span>📝 <?= number_format((int)$d['entries']) ?> entries</span>
-              <span>📅 Start: <?= date('M j, Y g:i A', strtotime($d['start_date'])) ?></span>
-              <span>⏰ End: <?= date('M j, Y g:i A', strtotime($d['end_date'])) ?></span>
-              <?php if ($d['winner_user_id']): ?>
-              <span class="text-yellow-400">🏆 Winner selected</span>
+            <div class="s-meta mb-3">
+              <span class="s-meta-item"><?= ico('hash', 'w-3.5 h-3.5') ?> <?= number_format($ents) ?> entries</span>
+              <span class="s-meta-item"><?= ico('calendar', 'w-3.5 h-3.5') ?> Start: <?= date('M j, Y g:i A', strtotime($d['start_date'])) ?></span>
+              <?php if ($deadline): ?>
+              <span class="s-meta-item"><?= ico('clock', 'w-3.5 h-3.5') ?> <?= $isEntries ? 'Deadline' : 'End' ?>: <?= date('M j, Y g:i A', strtotime($d['end_date'])) ?></span>
+              <?php elseif ($isEntries): ?>
+              <span class="s-meta-item"><?= ico('clock', 'w-3.5 h-3.5') ?> No deadline</span>
               <?php endif; ?>
-              <?php if ($d['status']==='active'):
+              <?php if ($d['winner_user_id']): ?><span class="s-meta-item text-yellow-400"><?= ico('trophy', 'w-3.5 h-3.5') ?> Winner selected</span><?php endif; ?>
+              <?php if ($d['status']==='active' && $deadline):
                 $diff = strtotime($d['end_date']) - time();
                 if ($diff > 0) { $dd=floor($diff/86400);$hh=floor(($diff%86400)/3600);$mm=floor(($diff%3600)/60);
-                echo '<span class="text-cyan-400">⏱ '.($dd>0?"{$dd}d ":"")."{$hh}h {$mm}m remaining</span>"; }
+                  echo '<span class="s-meta-item text-cyan-400">'.ico('clock','w-3.5 h-3.5').' '.($dd>0?"{$dd}d ":"")."{$hh}h {$mm}m remaining</span>"; }
               endif; ?>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex gap-2 flex-wrap">
-
-              <!-- View details — always -->
-              <a href="<?= APP_URL ?>/admin/draw-manage.php?id=<?= $d['id'] ?>"
-                 class="btn btn-sm btn-secondary text-xs">📊 Details</a>
-
-              <?php if ($d['status'] === 'pending'): ?>
-                <!-- Activate -->
-                <form method="POST" style="display:inline"
-                      onsubmit="return confirm('Activate this draw now? Users will be able to enter immediately.')">
-                  <?= csrfField() ?>
-                  <input type="hidden" name="action"  value="activate">
-                  <input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
-                  <button class="btn btn-sm text-xs text-white" style="background:#22c55e">▶ Activate</button>
-                </form>
-                <!-- Edit -->
-                <a href="?tab=<?= urlencode($tab) ?>&edit=<?= $d['id'] ?>"
-                   class="btn btn-sm btn-secondary text-xs">✏️ Edit</a>
-                <!-- Delete -->
-                <form method="POST" style="display:inline"
-                      onsubmit="return confirm('Delete this draw permanently? This cannot be undone.')">
-                  <?= csrfField() ?>
-                  <input type="hidden" name="action"  value="delete">
-                  <input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
-                  <button class="btn btn-sm btn-secondary text-xs text-red-400">🗑 Delete</button>
-                </form>
-
-              <?php elseif ($d['status'] === 'active'): ?>
-                <!-- Edit while active -->
-                <a href="?tab=<?= urlencode($tab) ?>&edit=<?= $d['id'] ?>"
-                   class="btn btn-sm btn-secondary text-xs">✏️ Edit</a>
-                <!-- End draw -->
-                <form method="POST" style="display:inline"
-                      onsubmit="return confirm('End this draw now?\n\nUsers will no longer be able to enter. You will then need to select the winner on the next page.')">
-                  <?= csrfField() ?>
-                  <input type="hidden" name="action"  value="end">
-                  <input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
-                  <button class="btn btn-sm btn-secondary text-xs text-orange-400">⏹ End Draw</button>
-                </form>
-                <!-- Cancel -->
-                <form method="POST" style="display:inline"
-                      onsubmit="return confirm('Cancel this draw? This cannot be undone.')">
-                  <?= csrfField() ?>
-                  <input type="hidden" name="action"  value="cancel">
-                  <input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
-                  <button class="btn btn-sm btn-secondary text-xs text-red-400">✕ Cancel</button>
-                </form>
-
-              <?php elseif ($d['status'] === 'ended'): ?>
-                <?php if (!$d['winner_user_id']): ?>
-                <a href="<?= APP_URL ?>/admin/select-winner.php?id=<?= $d['id'] ?>"
-                   class="btn btn-sm text-xs text-white font-bold"
-                   style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
-                  🏆 Select Winner
-                </a>
-                <?php else: ?>
-                <a href="<?= APP_URL ?>/admin/winners.php?draw=<?= $d['id'] ?>"
-                   class="btn btn-sm btn-secondary text-xs text-yellow-400">
-                  🏆 View Winner
-                </a>
-                <?php endif; ?>
-
-              <?php elseif ($d['status'] === 'completed'): ?>
-                <a href="<?= APP_URL ?>/admin/winners.php?draw=<?= $d['id'] ?>"
-                   class="btn btn-sm btn-secondary text-xs text-yellow-400">
-                  🏆 View Result
-                </a>
+              <?php if ($d['status']==='ended' && ($d['ended_reason'] ?? '') === 'target_reached'): ?>
+              <span class="s-meta-item text-green-400"><?= ico('check', 'w-3.5 h-3.5') ?> Ended automatically: entry target reached</span>
               <?php endif; ?>
-
             </div>
+
+            <!-- Entry progress (entry-triggered only) -->
+            <?php if ($isEntries && $target > 0): ?>
+            <div class="mb-1 max-w-md">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-medium <?= $reached ? 'text-green-400' : 'text-slate-300' ?>"><?= number_format($ents) ?> / <?= number_format($target) ?> entries</span>
+                <span class="<?= $reached ? 'text-green-400 font-medium' : 'text-slate-500' ?>"><?= $reached ? 'Target reached' : $pct . '%' ?></span>
+              </div>
+              <div class="s-progress"><div class="<?= $reached ? 'done' : '' ?>" style="width:<?= $pct ?>%"></div></div>
+              <?php if (!$reached && in_array($d['status'], ['active','pending'])): ?>
+              <div class="text-[11.5px] text-slate-500 mt-1.5">Closes automatically after <?= number_format($target - $ents) ?> more <?= ($target - $ents) === 1 ? 'entry' : 'entries' ?>.</div>
+              <?php endif; ?>
+            </div>
+            <?php endif; ?>
           </div>
         </div>
-      </div>
+
+        <!-- Actions (Edit / End / Cancel moved to Details) -->
+        <div class="flex items-center gap-2 flex-wrap mt-4 pt-4 border-t border-white/[0.06]">
+          <a href="<?= $detailUrl ?>" class="s-btn s-btn-sm s-btn-ghost"><?= ico('eye', 'w-3.5 h-3.5') ?> Details</a>
+
+          <?php if ($d['status'] === 'pending'): ?>
+            <form method="POST" class="inline" <?= confirmAttrs('Activate this draw?', '“'.$d['title'].'” will go live and users will be able to enter immediately.', 'Activate draw', 'success') ?>>
+              <?= csrfField() ?><input type="hidden" name="action" value="activate"><input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
+              <button class="s-btn s-btn-sm s-btn-success"><?= ico('play', 'w-3.5 h-3.5') ?> Activate</button>
+            </form>
+            <form method="POST" class="inline" <?= confirmAttrs('Delete this draw?', '“'.$d['title'].'” will be permanently deleted. This cannot be undone.', 'Delete permanently', 'danger') ?>>
+              <?= csrfField() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
+              <button class="s-btn s-btn-sm s-btn-danger"><?= ico('trash', 'w-3.5 h-3.5') ?> Delete</button>
+            </form>
+            <span class="text-xs text-slate-500 ml-auto hidden sm:inline">Edit this draw from Details</span>
+
+          <?php elseif ($d['status'] === 'active'): ?>
+            <span class="text-xs text-slate-500 ml-auto hidden sm:inline">Edit, end or cancel from Details</span>
+
+          <?php elseif ($d['status'] === 'ended'): ?>
+            <?php if (!$d['winner_user_id']): ?>
+            <a href="<?= APP_URL ?>/admin/select-winner.php?id=<?= $d['id'] ?>" class="s-btn s-btn-sm s-btn-violet"><?= ico('trophy', 'w-3.5 h-3.5') ?> Select winner</a>
+            <?php else: ?>
+            <a href="<?= APP_URL ?>/admin/winners.php?draw=<?= $d['id'] ?>" class="s-btn s-btn-sm s-btn-ghost text-yellow-400"><?= ico('trophy', 'w-3.5 h-3.5') ?> View winner</a>
+            <?php endif; ?>
+
+          <?php elseif ($d['status'] === 'completed'): ?>
+            <a href="<?= APP_URL ?>/admin/winners.php?draw=<?= $d['id'] ?>" class="s-btn s-btn-sm s-btn-ghost text-yellow-400"><?= ico('trophy', 'w-3.5 h-3.5') ?> View result</a>
+          <?php endif; ?>
+        </div>
+      </article>
       <?php endforeach; ?>
     </div>
 
-  </div><!-- /p-4 -->
-</div><!-- /main-content -->
+  </div>
+</div>
 
 
 <!-- ══════════════════════════════════════════════════════════
      CREATE DRAW MODAL
 ══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="create-modal">
-  <div class="modal-box" style="max-width:620px;max-height:92vh;overflow-y:auto">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xl font-bold">Create New Draw</h3>
-      <button data-close-modal="create-modal" class="text-gray-400 hover:text-white text-xl">✕</button>
+  <div class="modal-box s-modal" style="max-width:640px;max-height:92vh;overflow-y:auto">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-lg font-semibold">Create new draw</h3>
+      <button data-close-modal="create-modal" class="text-slate-400 hover:text-white" aria-label="Close"><?= ico('x', 'w-5 h-5') ?></button>
     </div>
-    <p class="text-gray-400 text-sm mb-5">
-      Draw starts as <span class="text-yellow-400 font-semibold">Pending</span>.
-      Activate it manually or let the cron auto-activate at the start date.
-    </p>
-    <form method="POST" enctype="multipart/form-data">
-      <?= csrfField() ?><input type="hidden" name="action" value="create">
-      <div class="grid grid-cols-2 gap-4">
-        <div class="col-span-2 form-group">
-          <label class="form-label">Title <span class="text-red-400">*</span></label>
-          <input type="text" name="title" class="form-control" required autofocus>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select name="category" class="form-control">
-            <option value="">Select…</option>
-            <?php foreach(['Daily Patronage','Government Ticket','Transport','Dashboard Loyalty','Vendor Campaign','Grand Prize'] as $c): ?>
-            <option value="<?= $c ?>"><?= $c ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Banner Image</label>
-          <input type="file" name="banner_image" class="form-control" accept="image/*">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Start Date &amp; Time <span class="text-red-400">*</span></label>
-          <input type="datetime-local" name="start_date" class="form-control" required>
-          <div class="text-xs text-gray-500 mt-1">Cron auto-activates at this time if still pending</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">End Date &amp; Time <span class="text-red-400">*</span></label>
-          <input type="datetime-local" name="end_date" class="form-control" required>
-          <div class="text-xs text-gray-500 mt-1">Cron auto-ends at this time if still active</div>
-        </div>
-        <div class="col-span-2 form-group">
-          <label class="form-label">Description</label>
-          <textarea name="description" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="col-span-2 form-group">
-          <label class="form-label">Prize Details</label>
-          <textarea name="prize_details" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="col-span-2 form-group">
-          <label class="form-label">Rules</label>
-          <textarea name="rules" class="form-control" rows="2"></textarea>
-        </div>
-      </div>
-      <div class="flex gap-3 mt-2">
-        <button type="button" data-close-modal="create-draw-modal" class="btn btn-secondary flex-1">Cancel</button>
-        <button type="submit" class="btn btn-primary flex-1">🎯 Create Draw</button>
-      </div>
-    </form>
-  </div>
-</div>
+    <p class="text-slate-400 text-sm mb-5">The draw starts as <?= sPill('pending') ?>. Activate it when you're ready.</p>
 
-
-<!-- ══════════════════════════════════════════════════════════
-     EDIT DRAW MODAL
-     Always rendered — JS opens it when ?edit= is present.
-══════════════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="edit-modal">
-  <div class="modal-box" style="max-width:620px;max-height:92vh;overflow-y:auto">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xl font-bold">Edit Draw</h3>
-      <a href="?tab=<?= urlencode($tab) ?>" class="text-gray-400 hover:text-white text-xl">✕</a>
-    </div>
-
-    <?php if ($editDraw): ?>
-    <form method="POST" enctype="multipart/form-data">
-      <?= csrfField() ?>
-      <input type="hidden" name="action"  value="edit">
-      <input type="hidden" name="draw_id" value="<?= $editDraw['id'] ?>">
-
-      <!-- Title -->
-      <div class="form-group">
-        <label class="form-label">Draw Title <span class="text-red-400">*</span></label>
-        <input type="text" name="title" class="form-control"
-               value="<?= e($editDraw['title']) ?>" required>
-      </div>
-
-      <!-- Category + Banner side-by-side -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select name="category" class="form-control">
-            <option value="">Select…</option>
-            <?php foreach ($categories as $c): ?>
-            <option value="<?= e($c) ?>" <?= ($editDraw['category']??'')===$c?'selected':'' ?>>
-              <?= e($c) ?>
-            </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">New Banner <span class="text-gray-500 font-normal text-xs">(leave blank to keep)</span></label>
-          <input type="file" name="banner_image" class="form-control" accept="image/*">
-          <?php if ($editDraw['banner_image']): ?>
-          <div class="text-xs text-gray-500 mt-1">
-            Current: <?= e(basename($editDraw['banner_image'])) ?>
-          </div>
-          <?php endif; ?>
-        </div>
-      </div>
-
-      <!-- Dates -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="form-group">
-          <label class="form-label">Start Date &amp; Time <span class="text-red-400">*</span></label>
-          <input type="datetime-local" name="start_date" class="form-control"
-                 value="<?= date('Y-m-d\TH:i', strtotime($editDraw['start_date'])) ?>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">End Date &amp; Time <span class="text-red-400">*</span></label>
-          <input type="datetime-local" name="end_date" class="form-control"
-                 value="<?= date('Y-m-d\TH:i', strtotime($editDraw['end_date'])) ?>" required>
-        </div>
-      </div>
-
-      <!-- Description / Prize / Rules -->
-      <div class="form-group">
-        <label class="form-label">Description</label>
-        <textarea name="description" class="form-control" rows="2"><?= e($editDraw['description'] ?? '') ?></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Prize Details</label>
-        <textarea name="prize_details" class="form-control" rows="2"><?= e($editDraw['prize_details'] ?? '') ?></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Rules</label>
-        <textarea name="rules" class="form-control" rows="2"><?= e($editDraw['rules'] ?? '') ?></textarea>
-      </div>
-
-      <div class="flex gap-3 mt-4">
-        <a href="?tab=<?= urlencode($tab) ?>" class="btn btn-secondary flex-1 text-center">Cancel</a>
-        <button type="submit" class="btn btn-primary flex-1">💾 Save Changes</button>
-      </div>
-    </form>
-
-    <?php else: ?>
-    <!-- No draw selected — shouldn't normally be visible -->
-    <div class="p-8 text-center text-gray-500">
-      <div class="text-3xl mb-2">❓</div>
-      No draw selected. <a href="?tab=<?= urlencode($tab) ?>" class="text-orange-400 underline">Go back</a>
-    </div>
+    <?php if ($failed === 'create' && $err): ?>
+    <div class="s-alert s-alert-error mb-4" role="alert"><?= ico('alert', 'w-5 h-5 flex-shrink-0') ?><div><?= e($err) ?></div></div>
     <?php endif; ?>
+    <form method="POST" enctype="multipart/form-data" id="create-form">
+      <?= csrfField() ?><input type="hidden" name="action" value="create">
 
+      <!-- Type -->
+      <div class="mb-5">
+        <div class="s-label">Draw type</div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="s-type cursor-pointer">
+            <input type="radio" name="draw_type" value="timed" class="sr-only" <?= $old('create','draw_type','timed') !== 'entries' ? 'checked' : '' ?>>
+            <div class="h-full rounded-xl border border-white/10 bg-white/[0.03] p-3.5 transition">
+              <div class="font-medium text-sm flex items-center gap-2"><span class="text-cyan-300"><?= ico('clock') ?></span> Timed draw</div>
+              <div class="text-xs text-slate-400 mt-1">Ends on a date you choose.</div>
+            </div>
+          </label>
+          <label class="s-type cursor-pointer">
+            <input type="radio" name="draw_type" value="entries" class="sr-only" <?= $old('create','draw_type','timed') === 'entries' ? 'checked' : '' ?>>
+            <div class="h-full rounded-xl border border-white/10 bg-white/[0.03] p-3.5 transition">
+              <div class="font-medium text-sm flex items-center gap-2"><span class="text-purple-300"><?= ico('target') ?></span> Entry-triggered</div>
+              <div class="text-xs text-slate-400 mt-1">Ends when it reaches a number of entries.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="s-label">Title <span class="text-red-400">*</span></label>
+          <input type="text" name="title" class="s-input" value="<?= e($old('create','title')) ?>" required autofocus>
+        </div>
+
+        <!-- Entry target (entry-triggered only) -->
+        <div class="col-span-2 hidden" id="target-wrap">
+          <label class="s-label">Entries needed to trigger the draw <span class="text-red-400">*</span></label>
+          <input type="number" name="target_entries" id="target-input" class="s-input" min="2" max="<?= MAX_TARGET_ENTRIES ?>" step="1" placeholder="e.g. 20" value="<?= e($old('create','target_entries')) ?>">
+          <div class="s-hint">When the draw reaches this many entries it closes automatically and waits for you to select the winner.</div>
+        </div>
+
+        <div>
+          <label class="s-label">Category</label>
+          <select name="category" class="s-input">
+            <option value="">Select…</option>
+            <?php foreach($categories as $c): ?><option value="<?= e($c) ?>" <?= $old('create','category') === $c ? 'selected' : '' ?>><?= e($c) ?></option><?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label class="s-label">Banner image</label>
+          <input type="file" name="banner_image" class="s-input" accept="image/*">
+        </div>
+        <div>
+          <label class="s-label">Start date &amp; time <span class="text-red-400">*</span></label>
+          <input type="datetime-local" name="start_date" class="s-input" value="<?= e($old('create','start_date')) ?>" required>
+          <div class="s-hint">Cron auto-activates at this time if still pending</div>
+        </div>
+        <div>
+          <label class="s-label"><span id="end-label">End date &amp; time</span> <span class="text-red-400" id="end-star">*</span></label>
+          <input type="datetime-local" name="end_date" id="end-input" class="s-input" value="<?= e($old('create','end_date')) ?>" required>
+          <div class="s-hint" id="end-help">Cron auto-ends at this time if still active</div>
+        </div>
+        <div class="col-span-2"><label class="s-label">Description</label><textarea name="description" class="s-input" rows="2"><?= e($old('create','description')) ?></textarea></div>
+        <div class="col-span-2"><label class="s-label">Prize details</label><textarea name="prize_details" class="s-input" rows="2"><?= e($old('create','prize_details')) ?></textarea></div>
+        <div class="col-span-2"><label class="s-label">Rules</label><textarea name="rules" class="s-input" rows="2"><?= e($old('create','rules')) ?></textarea></div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button type="button" data-close-modal="create-modal" class="s-btn s-btn-ghost flex-1 py-2.5">Cancel</button>
+        <button type="submit" class="s-btn s-btn-primary flex-1 py-2.5"><?= ico('plus') ?> Create draw</button>
+      </div>
+    </form>
   </div>
 </div>
 
 
+<script>window.APP_URL = '<?= APP_URL ?>';</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
-// ── Auto-open the edit modal when ?edit= is present in URL ──
-// This runs AFTER app.js loads so Modal is defined.
 (function () {
-  const params = new URLSearchParams(window.location.search);
-  if (params.has('edit') && params.get('edit')) {
-    // Small delay to ensure Modal utility from app.js is ready
+  // Create form: show the entry target + make the end date an optional deadline for entry-triggered draws
+  const form = document.getElementById('create-form');
+  function syncType() {
+    const entries = form.querySelector('input[name=draw_type]:checked').value === 'entries';
+    document.getElementById('target-wrap').classList.toggle('hidden', !entries);
+    document.getElementById('target-input').required = entries;
+    document.getElementById('end-input').required = !entries;
+    document.getElementById('end-star').classList.toggle('hidden', entries);
+    document.getElementById('end-label').textContent = entries ? 'Deadline (optional)' : 'End date & time';
+    document.getElementById('end-help').textContent  = entries
+      ? 'Leave blank: only the entry target ends this draw'
+      : 'Cron auto-ends at this time if still active';
+  }
+  form.querySelectorAll('input[name=draw_type]').forEach(r => r.addEventListener('change', syncType));
+  syncType();
+
+  // Reopen the create modal after a failed save so nothing the admin typed is lost
+  const reopen = <?= $failed === 'create' ? "'create-modal'" : 'null' ?>;
+  if (reopen) {
     setTimeout(function () {
-      if (typeof Modal !== 'undefined' && Modal.open) {
-        Modal.open('edit-modal');
-      } else {
-        // Fallback: show overlay directly
-        var el = document.getElementById('edit-modal');
-        if (el) el.style.display = 'flex';
-      }
+      if (typeof Modal !== 'undefined' && Modal.open) Modal.open(reopen);
+      else { var el = document.getElementById(reopen); if (el) el.style.display = 'flex'; }
     }, 80);
   }
 })();
