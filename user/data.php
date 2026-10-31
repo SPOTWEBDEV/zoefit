@@ -210,6 +210,21 @@ function zfTickets(int $priceKobo): string {
     #plan-grid.list .pc-main { flex:1; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap }
     #plan-grid.list .pc-val, #plan-grid.list .pc-price { margin-top:0 }
     #plan-grid.list .pc-tix { padding:0 }
+    /* ── Mobile responsiveness ── */
+    .pc-tix { line-height:1.25 }
+    .pc, .pc-size, .pc-tix { min-width:0 }
+    @media (max-width:399px) {
+      #plan-grid:not(.list) { grid-template-columns:repeat(2, minmax(0,1fr)) }
+      .pc { min-height:120px }
+    }
+    @media (max-width:359px) {
+      .pc-size { font-size:20px }
+      .pc-tix { font-size:11px }
+    }
+    #plan-grid.list .pc-main { min-width:0 }
+    .tabs { scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch }
+    .type-chip { scroll-snap-align:start }
+    button, a { touch-action:manipulation }
     .net-tab.is-on { outline:2px solid #fb923c; outline-offset:2px; opacity:1 }
     .net-tab { opacity:.5; transition:opacity .15s }
   </style>
@@ -228,7 +243,7 @@ function zfTickets(int $priceKobo): string {
     <a href="#recent" class="text-sm font-semibold text-orange-400">History</a>
   </div>
 
-  <div class="p-4 md:p-8 max-w-6xl mx-auto">
+  <div class="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto min-w-0">
 
     <!-- Alerts -->
     <?php if ($errors): ?>
@@ -244,13 +259,13 @@ function zfTickets(int $priceKobo): string {
     <?php endif; ?>
 
     <!-- Promo banner -->
-    <div class="relative overflow-hidden rounded-2xl h-28 flex items-center px-5 mb-5" style="background:linear-gradient(120deg,#1a2235 0%,#3b1d08 60%,#f97316 150%)">
+    <div class="relative overflow-hidden rounded-2xl min-h-[7rem] py-4 pl-5 pr-20 sm:pr-5 flex items-center mb-5" style="background:linear-gradient(120deg,#1a2235 0%,#3b1d08 60%,#f97316 150%)">
       <div>
         <div class="text-lg font-extrabold leading-tight text-orange-400">Buy data, earn tickets</div>
         <div class="text-sm text-white font-semibold">₦<?= number_format(REWARD_NAIRA_PER_CODE) ?> spent = 1 free ticket</div>
         <div class="text-xs text-gray-300 mt-0.5">Tickets are your raffle codes</div>
       </div>
-      <div class="absolute right-5 text-6xl">🎟️</div>
+      <div class="absolute right-4 sm:right-5 text-5xl sm:text-6xl">🎟️</div>
     </div>
 
     <div class="grid lg:grid-cols-5 gap-5 items-start">
@@ -263,14 +278,14 @@ function zfTickets(int $priceKobo): string {
           <div class="flex gap-3 mb-4">
             <?php foreach ($networks as $key => $label): ?>
               <a href="?network=<?= $key ?>" data-network="<?= $key ?>" title="<?= e($label) ?>"
-                 class="net-tab w-12 h-12 rounded-full flex items-center justify-center text-[10px] font-extrabold <?= $networkInput===$key ? 'is-on' : '' ?>"
+                 class="net-tab w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-[10px] font-extrabold <?= $networkInput===$key ? 'is-on' : '' ?>"
                  style="background:<?= $networkColors[$key] ?>;color:<?= $key==='mtn' ? '#000' : '#fff' ?>"><?= e($label) ?></a>
             <?php endforeach; ?>
           </div>
           <div class="flex items-center gap-3 border-t border-white/5 pt-3">
             <input form="data-form" type="tel" name="phone" id="phone" required inputmode="numeric" autocomplete="off"
                    value="<?= e($phoneInput) ?>" placeholder="080 0000 0000"
-                   class="flex-1 min-w-0 bg-transparent text-xl font-bold tracking-wide outline-none placeholder:text-gray-600">
+                   class="flex-1 min-w-0 bg-transparent text-lg sm:text-xl font-bold tracking-wide outline-none placeholder:text-gray-600">
             <button type="button" id="use-mine" data-phone="<?= e($user['phone'] ?? '') ?>" aria-label="Use my number"
                     class="w-10 h-10 rounded-full bg-orange-400 flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6" fill="#fff" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z"/></svg>
@@ -338,13 +353,13 @@ function zfTickets(int $priceKobo): string {
           </div>
 
           <!-- Sticky pay bar -->
-          <div class="sticky bottom-3 mt-4 z-20 rounded-2xl border border-white/10 bg-[#111827]/95 backdrop-blur p-3 flex items-center gap-3 shadow-2xl">
+          <div class="sticky bottom-2 sm:bottom-3 mt-4 z-20 pb-[max(0.75rem,env(safe-area-inset-bottom))] rounded-2xl border border-white/10 bg-[#111827]/95 backdrop-blur p-3 flex items-center gap-3 shadow-2xl">
             <div class="flex-1 min-w-0">
               <div class="text-xs text-gray-400 truncate" id="bar-plan">Select a plan</div>
               <div class="font-extrabold text-orange-400 leading-tight" id="bar-total">₦0</div>
             </div>
             <button type="submit" id="submit-btn" <?= $networkPlans ? '' : 'disabled' ?>
-                    class="btn bg-orange-400 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-3 font-semibold rounded-xl">
+                    class="btn bg-orange-400 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 sm:px-8 py-3 font-semibold rounded-xl flex-shrink-0">
               <span id="submit-label">Buy Data</span>
             </button>
           </div>

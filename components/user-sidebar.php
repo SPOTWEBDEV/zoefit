@@ -70,14 +70,14 @@ $currentPage = $currentPage ?? '';
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
-      Redeem Code
+      Redeem Reward Ticket
     </a>
 
     <a href="<?= APP_URL ?>/user/codes.php" class="nav-item <?= $currentPage === 'codes' ? 'active' : '' ?>">
       <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
       </svg>
-      My Codes
+      My Reward Tickets
     </a>
 
     <a href="<?= APP_URL ?>/user/transactions.php" class="nav-item <?= $currentPage === 'transactions' ? 'active' : '' ?>">

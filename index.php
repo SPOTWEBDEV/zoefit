@@ -11,8 +11,6 @@ $totalUsers   = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
 $totalWinners = $db->query("SELECT COUNT(*) FROM draw_winners")->fetchColumn();
 $totalDraws   = $db->query("SELECT COUNT(*) FROM draws WHERE status='completed'")->fetchColumn();
 
-// TODO: put the real ZoeFeeds WhatsApp number here (international format, digits only, e.g. 2348012345678)
-$whatsappNumber = '234XXXXXXXXXX';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -80,6 +78,10 @@ $whatsappNumber = '234XXXXXXXXXX';
         mask-image: linear-gradient(to right, transparent 0%, #000 30%);
       }
     }
+
+    :root { --topbar-h: 44px; }
+    @media (max-width: 379px) { :root { --topbar-h: 72px; } }
+    .hero-pt { padding-top: calc(var(--topbar-h) + 68px); }
 
     .hero-divider {
       width: 1px;
@@ -203,7 +205,7 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      TOP BAR — contact row, then social row
 ====================================================== -->
-  <div class="social-media-icon fixed top-0 w-full h-11 z-50 glass px-4 sm:px-8 flex items-center justify-end bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400">
+  <div class="social-media-icon fixed top-0 w-full z-50 glass px-4 sm:px-8 flex items-center justify-end bg-[#0a0f1a] border-b border-white/5 text-sm text-gray-400" style="height:var(--topbar-h)">
     <!-- Site email + website (hidden for now — remove these comment markers to show it again)
     <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
       <a href="mailto:support@zoefeeds.com" class="flex items-center gap-2 hover:text-white transition-colors">
@@ -220,26 +222,26 @@ $whatsappNumber = '234XXXXXXXXXX';
       </div>
     </div>
     -->
-    <div class="flex gap-3 items-center justify-end">
-      <p class="hidden min-[480px]:block text-gray-300">Connect with us on social media</p>
+    <div class="flex gap-2 sm:gap-3 items-center justify-end max-[379px]:flex-col max-[379px]:gap-1">
+      <p class="text-xs sm:text-sm text-gray-300 whitespace-nowrap">Connect with us on social media</p>
       <div class="flex gap-3 items-center">
         <a href="https://www.facebook.com/share/1ENRgcyQ5N/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#3b82f6">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="#3b82f6">
             <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.9h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
           </svg>
         </a>
         <a href="https://youtube.com/@zoefeedsloyaltyrewards?si=j0ibB156206GB7Zc" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#ef4444">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="#ef4444">
             <path d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.56A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14c1.88.56 9.38.56 9.38.56s7.5 0 9.38-.56a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
           </svg>
         </a>
         <a href="https://www.tiktok.com/@zoefeedsraffles?_r=1&_t=ZN-97tsm7fZ1Mc" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#fff">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="#fff">
             <path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.62h-3.1v13.4a3.03 3.03 0 1 1-2.1-2.88V9.6a6.13 6.13 0 1 0 5.2 6.06V9.83a8.2 8.2 0 0 0 4.8 1.53V8.28a5.1 5.1 0 0 1-3.4-2.46Z" />
           </svg>
         </a>
-        <a href="https://wa.me/<?= e($whatsappNumber) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="#22c55e">
+        <a href="https://whatsapp.com/channel/0029VaDTNdKGU3BBUThFvS1Y" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+          <svg class="w-6 h-6 sm:w-7 sm:h-7" viewBox="0 0 24 24" fill="#22c55e">
             <path d="M12.04 2a9.93 9.93 0 0 0-8.5 15.07L2 22l5.07-1.5A9.94 9.94 0 1 0 12.04 2Zm5.8 14.05c-.25.7-1.45 1.34-2 1.42-.5.08-1.13.11-1.82-.11-.42-.14-.96-.31-1.65-.61-2.9-1.25-4.8-4.17-4.94-4.37-.14-.19-1.18-1.57-1.18-3s.75-2.13 1.02-2.42c.26-.29.57-.36.76-.36h.55c.18 0 .42-.07.65.5.25.6.84 2.05.91 2.2.07.14.12.31.02.5-.09.2-.14.31-.28.48-.14.17-.3.38-.43.51-.14.14-.29.3-.12.58.17.29.74 1.22 1.6 1.98 1.1.98 2.03 1.28 2.32 1.43.29.14.46.12.63-.07.17-.2.72-.84.91-1.13.19-.29.38-.24.65-.14.26.1 1.68.79 1.97.94.29.14.48.21.55.33.07.12.07.7-.18 1.4Z" />
           </svg>
         </a>
@@ -250,7 +252,7 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      NAVBAR
 ====================================================== -->
-  <nav class="fixed top-11 w-full z-50 glass border-b border-white/5">
+  <nav class="fixed w-full z-50 glass border-b border-white/5" style="top:var(--topbar-h)">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
       <div class="flex items-center justify-between h-16">
 
@@ -312,7 +314,7 @@ $whatsappNumber = '234XXXXXXXXXX';
   <!-- ======================================================
      HERO
 ====================================================== -->
-  <section class="relative flex items-center pt-28 lg:min-h-screen overflow-hidden">
+  <section class="hero-pt relative flex items-center lg:min-h-screen overflow-hidden">
     <!-- Background glow -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl"></div>

@@ -28,11 +28,6 @@ $usedInDraws->execute([$userId]); $usedInDraws = $usedInDraws->fetchColumn();
 $totalWins    = $db->prepare("SELECT COUNT(*) FROM draw_winners WHERE user_id = ?");
 $totalWins->execute([$userId]); $totalWins = $totalWins->fetchColumn();
 
-// Wallet / deposit stats
-$depositStats = $db->prepare("SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total FROM deposits WHERE user_id = ? AND status = 'success'");
-$depositStats->execute([$userId]);
-$depositStats = $depositStats->fetch();
-
 $recentDeposits = $db->prepare("SELECT * FROM deposits WHERE user_id = ? ORDER BY created_at DESC LIMIT 5");
 $recentDeposits->execute([$userId]);
 $recentDeposits = $recentDeposits->fetchAll();
@@ -112,24 +107,7 @@ unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
       </div>
     </div>
 
-    <!-- Wallet detail cards: deposits, orders, etc -->
-    <div class="grid grid-cols-3 gap-4 mb-6">
-      <div class="card p-4 text-center">
-        <div class="text-2xl font-bold font-display text-emerald-400"><?= formatNaira($depositStats['total'] ?? 0) ?></div>
-        <div class="text-xs text-gray-400 mt-1">Total Deposited</div>
-      </div>
-      <div class="card p-4 text-center">
-        <div class="text-2xl font-bold font-display text-blue-400"><?= (int) ($depositStats['cnt'] ?? 0) ?></div>
-        <div class="text-xs text-gray-400 mt-1">Successful Deposits</div>
-      </div>
-      <div class="card p-4 text-center relative">
-        <div class="text-2xl font-bold font-display text-gray-500">0</div>
-        <div class="text-xs text-gray-400 mt-1">Orders</div>
-        <span class="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-gray-400">Soon</span>
-      </div>
-    </div>
-
-    <!-- Raffle Code Balance Card -->
+    <!-- Reward Ticket Balance Card -->
     <div class="balance-card mb-6 fade-in">
       <div class="flex items-start justify-between mb-4">
         <div>
@@ -138,15 +116,15 @@ unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
             <div class="text-4xl font-display font-bold" id="balance-value" data-value="<?= $totalnotUsedCodes ?>" data-hidden="0"><?= $totalnotUsedCodes ?></div>
             <button id="balance-toggle" onclick="toggleBalance()" class="text-xl">👁</button>
           </div>
-          <div class="text-sm text-orange-200 mt-1">Active Raffle Codes</div>
+          <div class="text-sm text-orange-200 mt-1">Active Reward Tickets</div>
         </div>
         <div class="bg-white/10 rounded-xl p-3">
           <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
         </div>
       </div>
       <div class="flex gap-3 mt-4">
-        <a href="<?= APP_URL ?>/user/redeem.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">+ Redeem Code</a>
-        <a href="<?= APP_URL ?>/user/transfer.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">Transfer Code</a>
+        <a href="<?= APP_URL ?>/user/redeem.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">+ Redeem Ticket</a>
+        <a href="<?= APP_URL ?>/user/transfer.php" class="btn btn-sm bg-white/20 hover:bg-white/30 text-white border-0 flex-1 justify-center">Transfer Ticket</a>
        
       </div>
     </div>
@@ -155,18 +133,16 @@ unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
     <div class="grid grid-cols-3 gap-4 mb-6">
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold font-display text-orange-400"><?= $totalCodes ?></div>
-        <div class="text-xs text-gray-400 mt-1">Total Codes</div>
+        <div class="text-xs text-gray-400 mt-1">Total Tickets</div>
       </div>
-      
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold font-display text-blue-400"><?= $usedInDraws ?></div>
-        <div class="text-xs text-gray-400 mt-1">Total Codes In Draws</div>
+        <div class="text-xs text-gray-400 mt-1">Tickets In Draws</div>
       </div>
       <div class="card p-4 text-center">
         <div class="text-2xl font-bold font-display text-green-400"><?= $totalWins ?></div>
         <div class="text-xs text-gray-400 mt-1">Wins</div>
       </div>
-      
     </div>
 
     <!-- Active Draws -->
@@ -249,7 +225,7 @@ unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
             </div>
             <div class="text-right">
               <div class="font-semibold <?= $t['type']==='credit'?'text-green-400':'text-red-400' ?>">
-                <?= $t['type']==='credit'?'+':'-' ?><?= abs($t['amount']) ?> code<?= abs($t['amount'])>1?'s':'' ?>
+                <?= $t['type']==='credit'?'+':'-' ?><?= abs($t['amount']) ?> ticket<?= abs($t['amount'])>1?'s':'' ?>
               </div>
               <div class="text-xs text-gray-500"><?= date('M j, g:ia', strtotime($t['created_at'])) ?></div>
             </div>
