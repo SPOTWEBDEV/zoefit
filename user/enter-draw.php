@@ -38,6 +38,9 @@ $skippedMsg = [];
 $closedNow = false;   // true when this very entry filled an entry-triggered draw
 
 // ── POST: enter the draw with one or more codes ────────────
+// Everything below runs in ONE transaction. reserveDrawEntrySlot() locks the draw row, so two users
+// submitting at the same instant can never push an entry-triggered draw past its target.
+$triggered = false;   // true => this submission reached the entry target and ended the draw
 if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     $codeIds = $_POST['code_id'] ?? [];
     if (!is_array($codeIds)) $codeIds = [$codeIds];
@@ -48,71 +51,73 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
     } else {
         $enteredCount = 0;
         $skipped = [];
+        try {
+            $db->beginTransaction();
 
-        foreach ($codeIds as $codeId) {
-            // Verify code belongs to this user and is redeemed (eligible)
-            $code = $db->prepare(
-                "SELECT * FROM codes WHERE id=? AND current_owner=? AND status='redeemed'"
-            );
-            $code->execute([$codeId, $userId]); $code = $code->fetch();
+            // Lock the draw + make sure it is still open and has room for this many entries
+            $slot = reserveDrawEntrySlot($db, $drawId, count($codeIds));
+            if (!$slot['ok']) {
+                $db->rollBack();
+                $err = $slot['message'];
+            } else {
+                foreach ($codeIds as $codeId) {
+                    // Verify code belongs to this user and is redeemed (eligible); lock it
+                    $code = $db->prepare(
+                        "SELECT * FROM codes WHERE id=? AND current_owner=? AND status='redeemed' FOR UPDATE"
+                    );
+                    $code->execute([$codeId, $userId]); $code = $code->fetch();
 
-            if (!$code) {
-                $skipped[] = "Code #$codeId (invalid or not eligible)";
-                continue;
+                    if (!$code) {
+                        $skipped[] = "Code #$codeId (invalid or not eligible)";
+                        continue;
+                    }
+
+                    // Check not already entered this draw with this code
+                    $alreadyIn = $db->prepare("SELECT id FROM draw_entries WHERE draw_id=? AND code_id=?");
+                    $alreadyIn->execute([$drawId, $codeId]);
+                    if ($alreadyIn->fetch()) {
+                        $skipped[] = $code['code'].' (already entered)';
+                        continue;
+                    }
+
+                    // Enter the draw
+                    $db->prepare(
+                        "INSERT INTO draw_entries (draw_id, user_id, code_id, entered_at)
+                         VALUES (?,?,?,NOW())"
+                    )->execute([$drawId, $userId, $codeId]);
+
+                    // Mark code as reserved
+                    $db->prepare("UPDATE codes SET status='reserved' WHERE id=?")->execute([$codeId]);
+
+                    auditLog('user', $userId, 'enter_draw',
+                        "User entered draw #{$drawId} with code #{$codeId}", 'draw', $drawId);
+
+                    $enteredCount++;
+                }
+
+                if ($enteredCount > 0) {
+                    // Entry-triggered draws end themselves the moment they reach the target
+                    $triggered = finalizeDrawAfterEntry($db, $drawId);
+                    $db->commit();
+
+                    createNotification($userId, '🎯 Entered Draw',
+                        $enteredCount > 1
+                            ? "You entered \"{$draw['title']}\" with {$enteredCount} codes."
+                            : 'Your code has been entered into "'.$draw['title'].'"',
+                        'draw');
+                    $msg = 'success';
+                    $enteredCountMsg = $enteredCount;
+                    $skippedMsg = $skipped;
+                    $closedNow = $triggered;
+                } else {
+                    $db->rollBack();
+                    $err = 'None of the selected codes could be entered: '.implode(', ', $skipped);
+                }
             }
-
-            // Entry-triggered draw: never go past the target
-            if ($isEntries && $target > 0 && $countEntries() >= $target) {
-                $skipped[] = $code['code'].' (draw is full)';
-                continue;
-            }
-
-            // Check not already entered this draw with this code
-            $alreadyIn = $db->prepare(
-                "SELECT id FROM draw_entries WHERE draw_id=? AND code_id=?"
-            );
-            $alreadyIn->execute([$drawId, $codeId]);
-            if ($alreadyIn->fetch()) {
-                $skipped[] = $code['code'].' (already entered)';
-                continue;
-            }
-
-            // Enter the draw
-            $db->prepare(
-                "INSERT INTO draw_entries (draw_id, user_id, code_id, entered_at)
-                 VALUES (?,?,?,NOW())"
-            )->execute([$drawId, $userId, $codeId]);
-
-            // Mark code as reserved
-            $db->prepare(
-                "UPDATE codes SET status='reserved' WHERE id=?"
-            )->execute([$codeId]);
-
-            auditLog('user', $userId, 'enter_draw',
-                "User entered draw #{$drawId} with code #{$codeId}", 'draw', $drawId);
-
-            $enteredCount++;
-        }
-
-        if ($enteredCount > 0) {
-            // Entry-triggered draws close themselves the moment they hit the target
-            if ($isEntries) {
-                sweepEntryTargetDraws($db);
-                $st = $db->prepare("SELECT status FROM draws WHERE id=?");
-                $st->execute([$drawId]);
-                $closedNow = ($st->fetchColumn() !== 'active');
-            }
-
-            createNotification($userId, '🎯 Entered Draw',
-                $enteredCount > 1
-                    ? "You entered \"{$draw['title']}\" with {$enteredCount} codes."
-                    : 'Your code has been entered into "'.$draw['title'].'"',
-                'draw');
-            $msg = 'success';
-            $enteredCountMsg = $enteredCount;
-            $skippedMsg = $skipped;
-        } else {
-            $err = 'None of the selected codes could be entered: '.implode(', ', $skipped);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log('[ENTER-DRAW] ' . $e->getMessage());
+            $err = 'Something went wrong while entering the draw. Please try again.';
         }
     }
 }
@@ -317,7 +322,7 @@ $pageTitle   = 'Enter Draw';
         Choose one or more of your redeemed codes. Each code counts as a separate entry —
         selecting more codes increases your chances of winning.
         <?php if ($isEntries && $target > 0 && !$reached): ?>
-        <span class="block mt-1 text-slate-500">Only <?= number_format($left) ?> more <?= $left === 1 ? 'entry fits' : 'entries fit' ?> in this draw, so if it fills up first, your remaining codes stay in your wallet.</span>
+        <span class="block mt-1 text-slate-500">This draw has <?= number_format($left) ?> entry slot<?= $left === 1 ? '' : 's' ?> left — you can select up to <?= number_format($left) ?> code<?= $left === 1 ? '' : 's' ?>. If it fills up first, you'll be told and none of your codes are used.</span>
         <?php endif; ?>
       </p>
 
@@ -407,6 +412,7 @@ $pageTitle   = 'Enter Draw';
   const submitBtn   = document.getElementById('submit-btn');
   const countLabel  = document.getElementById('selected-count-label');
   const selectAllBtn = document.getElementById('select-all-btn');
+  const MAX = <?= ($isEntries && $target > 0 && !$reached) ? (int)$left : 0 ?>;   // 0 = no limit (timed draws)
   if (!checkboxes.length) return;
 
   function syncVisual(cb) {
@@ -449,13 +455,23 @@ $pageTitle   = 'Enter Draw';
   }
 
   checkboxes.forEach(cb => {
-    cb.addEventListener('change', function () { syncVisual(this); refreshState(); });
+    cb.addEventListener('change', function () {
+      if (MAX && document.querySelectorAll('.code-option input[type=checkbox]:checked').length > MAX) {
+        this.checked = false; syncVisual(this);
+        countLabel.textContent = 'This draw only has ' + MAX + ' slot' + (MAX === 1 ? '' : 's') + ' left';
+        setTimeout(refreshState, 1800);
+        return;
+      }
+      syncVisual(this); refreshState();
+    });
   });
 
   selectAllBtn?.addEventListener('click', function () {
     const enabled = Array.from(checkboxes).filter(cb => !cb.disabled);
-    const allChecked = enabled.length > 0 && enabled.every(cb => cb.checked);
-    enabled.forEach(cb => { cb.checked = !allChecked; syncVisual(cb); });
+    const pool = MAX ? enabled.slice(0, MAX) : enabled;
+    const allChecked = pool.length > 0 && pool.every(cb => cb.checked);
+    enabled.forEach(cb => { cb.checked = false; syncVisual(cb); });
+    if (!allChecked) pool.forEach(cb => { cb.checked = true; syncVisual(cb); });
     this.textContent = allChecked ? 'Select all' : 'Deselect all';
     refreshState();
   });

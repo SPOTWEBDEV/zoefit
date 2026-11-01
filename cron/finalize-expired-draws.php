@@ -4,9 +4,12 @@
  * cron/finalize-expired-draws.php
  *
  * Runs every minute via cron.
- * Does TWO things only:
  *   1. Auto-activates PENDING draws whose start_date has arrived
- *   2. Auto-ends ACTIVE draws whose end_date has passed (status → 'ended')
+ *   2. Entry-triggered draws: ends any ACTIVE draw that already reached its entry target
+ *      (safety net: the enter-draw page normally ends them instantly) and emails the admins
+ *   3. Auto-ends ACTIVE draws whose end_date has passed (status → 'ended').
+ *      Timed draws always end here. Entry-triggered draws are only ended here when the admin set a real
+ *      deadline — entry draws with NO deadline (placeholder end date) are never ended by the clock.
  *
  * Does NOT select winners — that is done manually by admin on
  * admin/select-winner.php using the physical machine number.
@@ -41,6 +44,7 @@ if (!$isCli) {
 // ── Bootstrap ──────────────────────────────────────────────
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../lib/draw_trigger.php';   // sweepEntryTargetDraws()
 require_once __DIR__ . '/../mailer/index.php';
 
 // ── Lock file — prevent overlapping runs ───────────────────
@@ -93,6 +97,18 @@ try {
     // Columns already exist — fine
 }
 
+// ── Column that remembers the admins were emailed about an entry-target draw ──
+// (checked through information_schema so it works on both MySQL and MariaDB)
+try {
+    $has = $db->query("SELECT COUNT(*) FROM information_schema.COLUMNS
+                       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'draws' AND COLUMN_NAME = 'ended_notified_at'")->fetchColumn();
+    if (!$has) {
+        $db->exec("ALTER TABLE `draws` ADD COLUMN `ended_notified_at` TIMESTAMP NULL DEFAULT NULL");
+    }
+} catch (\Exception $e) {
+    cronLog('WARNING: could not ensure ended_notified_at column — ' . $e->getMessage());
+}
+
 // ── Ensure 'ended' status exists in draws enum ────────────
 // Converts any existing 'paused' draws back to 'active' first
 try {
@@ -117,13 +133,14 @@ $toActivate = $db->query(
 )->fetchAll();
 
 foreach ($toActivate as $d) {
-    $db->prepare(
+    $st = $db->prepare(
         "UPDATE draws
          SET status='active', activated_at=NOW(), updated_at=NOW()
          WHERE id=? AND status='pending'"
-    )->execute([$d['id']]);
+    );
+    $st->execute([$d['id']]);
 
-    if ($db->rowCount() > 0) {
+    if ($st->rowCount() > 0) {
         $activated++;
         $line = "ACTIVATED draw #{$d['id']}: {$d['title']}";
         cronLog("  → $line");
@@ -144,17 +161,84 @@ if ($activated === 0 && empty($toActivate)) {
 
 
 // ══════════════════════════════════════════════════════════
-// STEP 2 — Auto-end ACTIVE draws whose end_date has passed
+// STEP 2 — Entry-triggered draws that reached their target
+//           Normally ended instantly by enter-draw.php; this
+//           is the safety net (e.g. admin lowered the target,
+//           or entries were added by another path).
+//           Runs BEFORE the deadline step so the draw keeps
+//           the reason 'target_reached'.
+// ══════════════════════════════════════════════════════════
+$targetEnded = sweepEntryTargetDraws($db);
+if ($targetEnded > 0) {
+    $ended += $targetEnded;
+    $line = "ENDED {$targetEnded} entry-triggered draw(s) that reached their target";
+    cronLog("  → $line");
+    $logLines[] = $line;
+}
+
+// Email the admins once for every entry-triggered draw that ended on its target and still waits for a winner
+// (this also catches draws ended instantly by the enter-draw page, which does not send email).
+try {
+    $targetDraws = $db->query(
+        "SELECT * FROM draws
+         WHERE status = 'ended'
+           AND ended_reason = 'target_reached'
+           AND ended_notified_at IS NULL
+           AND winner_user_id IS NULL"
+    )->fetchAll();
+
+    foreach ($targetDraws as $td) {
+        $s = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?");
+        $s->execute([$td['id']]);
+        $entryCount = (int)$s->fetchColumn();
+
+        // Mark first, so a mail failure can never cause a flood of repeat emails every minute
+        $db->prepare("UPDATE draws SET ended_notified_at = NOW() WHERE id = ? AND ended_notified_at IS NULL")
+           ->execute([$td['id']]);
+
+        try {
+            _notifyAdminsDrawEnded($db, $td, $entryCount);
+        } catch (\Throwable $e) {
+            cronLog("  WARNING: email for draw #{$td['id']} failed — " . $e->getMessage());
+        }
+        $line = "NOTIFIED admins: draw #{$td['id']} '{$td['title']}' reached its entry target ({$entryCount} entries)";
+        cronLog("  → $line");
+        $logLines[] = $line;
+    }
+} catch (\Throwable $e) {
+    cronLog('WARNING: target-reached notification step skipped — ' . $e->getMessage());
+}
+
+
+// ══════════════════════════════════════════════════════════
+// STEP 3 — Auto-end ACTIVE draws whose end_date has passed
 //           Status → 'ended' — awaiting admin winner entry
 // ══════════════════════════════════════════════════════════
+// Only draws that really END BY DATE are picked up here:
+//   • timed draws (and old draws with no type)                       → always end at end_date
+//   • entry-triggered draws                                          → ONLY if the admin set a real deadline.
+// An entry-triggered draw with no deadline has a placeholder end_date filled in (2099-12-31), or an
+// empty/zero date — it must NEVER be ended by the clock, only by reaching its entry target.
 $toEnd = $db->query(
     "SELECT * FROM draws
      WHERE status = 'active'
-       AND end_date <= NOW()"
+       AND end_date <= NOW()
+       AND (
+             draw_type IS NULL
+          OR draw_type <> 'entries'
+          OR (end_date >= '2000-01-01' AND end_date < '2099-01-01')
+       )"
 )->fetchAll();
 
 foreach ($toEnd as $draw) {
     $drawId = (int)$draw['id'];
+
+    // Second line of defence (in PHP): never end an entry-triggered draw that has no real deadline
+    if (($draw['draw_type'] ?? 'timed') === 'entries'
+        && (!drawHasDeadline($draw['end_date']) || substr((string)$draw['end_date'], 0, 4) < '2000')) {
+        cronLog("  → Draw #{$drawId} is entry-triggered with no deadline — skipped (ends only at its entry target).");
+        continue;
+    }
 
     // Guard: skip if already has a winner selected
     if (!empty($draw['winner_user_id'])) {
@@ -165,13 +249,14 @@ foreach ($toEnd as $draw) {
         continue;
     }
 
-    $db->prepare(
+    $st = $db->prepare(
         "UPDATE draws
          SET status='ended', ended_at=NOW(), updated_at=NOW()
          WHERE id=? AND status='active'"
-    )->execute([$drawId]);
+    );
+    $st->execute([$drawId]);
 
-    if ($db->rowCount() > 0) {
+    if ($st->rowCount() > 0) {
         $ended++;
         $line = "ENDED draw #{$drawId}: {$draw['title']}";
         cronLog("  → $line");
@@ -201,7 +286,7 @@ if ($activated === 0 && $ended === 0) {
 
 
 // ══════════════════════════════════════════════════════════
-// STEP 3 — Log run to cron_logs table
+// STEP 4 — Log run to cron_logs table
 // ══════════════════════════════════════════════════════════
 try {
     $db->prepare(
