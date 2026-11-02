@@ -12,7 +12,10 @@ function drawCategories(): array {
 /**
  * Validate the draw form shared by create and edit.
  * Timed:   needs start + end, end after start.
- * Entries: needs start + a target number of entries; the end date is an OPTIONAL deadline.
+ * Entries: needs a target number of entries. NO start date: entry draws run in a queue and start
+ *          automatically (see advanceEntryDrawQueue); start_date is filled in when they really start.
+ *          The end date is an OPTIONAL deadline. $v['start'] is null for entry draws, so callers must
+ *          use COALESCE(?, NOW()) on insert and COALESCE(?, start_date) on update.
  * @return array{0: ?string, 1: array} [error, values]
  */
 function validateDrawForm(string $type, int $currentEntries = 0): array {
@@ -26,7 +29,12 @@ function validateDrawForm(string $type, int $currentEntries = 0): array {
         'end'   => trim($_POST['end_date']      ?? ''),
         'target'=> null,
     ];
-    if ($v['title'] === '' || $v['start'] === '') return ['Title and start date are required.', $v];
+    if ($type === 'entries') {
+        $v['start'] = null;   // never taken from the form: set automatically when the draw really starts
+        if ($v['title'] === '') return ['Title is required.', $v];
+    } elseif ($v['title'] === '' || $v['start'] === '') {
+        return ['Title and start date are required.', $v];
+    }
 
     if ($type === 'entries') {
         $t = trim((string)($_POST['target_entries'] ?? ''));
@@ -39,8 +47,8 @@ function validateDrawForm(string $type, int $currentEntries = 0): array {
         $v['target'] = (int)$t;
         if ($v['end'] === '') {
             $v['end'] = DRAW_NO_DEADLINE;                       // no deadline: only the entry target ends it
-        } elseif (strtotime($v['end']) <= strtotime($v['start'])) {
-            return ['The deadline must be after the start date.', $v];
+        } elseif (strtotime($v['end']) <= time()) {
+            return ['The deadline must be in the future.', $v];
         }
     } else {
         if ($v['end'] === '') return ['Title, start date and end date are required.', $v];

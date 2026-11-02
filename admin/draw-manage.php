@@ -38,7 +38,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
             if ($err) $failed = 'edit';
             if (!$err) {
                 $banner = uploadDrawBanner();
-                $sets = "title=?,description=?,rules=?,prize_details=?,category=?,start_date=?,end_date=?,target_entries=?,updated_at=NOW()";
+                $sets = "title=?,description=?,rules=?,prize_details=?,category=?,start_date=COALESCE(?,start_date),end_date=?,target_entries=?,updated_at=NOW()";
                 $args = [$v['title'],$v['desc'],$v['rules'],$v['prize'],$v['cat'],$v['start'],$v['end'],$v['target']];
                 if ($banner) { $sets = "banner_image=?," . $sets; array_unshift($args, $banner); }
                 $args[] = $drawId;
@@ -58,6 +58,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
         if ($st->rowCount()) {
             auditLog('admin',$adminId,'end_draw',"Draw #$drawId manually ended",'draw',$drawId);
             $msg = 'Draw ended. <a href="'.APP_URL.'/admin/select-winner.php?id='.$drawId.'">Select the winner now →</a>';
+            if (advanceEntryDrawQueue($db)) $msg .= ' The next queued entry draw has started automatically.';
         } else {
             $err = 'Only an active draw can be ended.';
         }
@@ -72,6 +73,7 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
         if ($st->rowCount()) {
             auditLog('admin',$adminId,'cancel_draw',"Draw #$drawId cancelled",'draw',$drawId);
             $msg = 'Draw cancelled.';
+            if (advanceEntryDrawQueue($db)) $msg .= ' The next queued entry draw has started automatically.';
         } else {
             $err = 'This draw can no longer be cancelled.';
         }
@@ -89,6 +91,14 @@ $target    = (int)($draw['target_entries'] ?? 0);
 $hasDeadline = drawHasDeadline($draw['end_date']);   // entry draws without a deadline store a placeholder date: never show it
 $startTime = strtotime($draw['start_date']);
 $endTime   = $hasDeadline ? strtotime($draw['end_date']) : null;
+
+// Queue position of a pending entry draw (1 = next in line)
+$queuePos = 0;
+if ($isEntries && $draw['status'] === 'pending') {
+    $qs = array_map('intval', $db->query("SELECT id FROM draws WHERE draw_type='entries' AND status='pending' ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN));
+    $k = array_search($drawId, $qs, true);
+    $queuePos = $k === false ? 0 : $k + 1;
+}
 
 // ── Stats ──────────────────────────────────────────────────
 $s = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id=?");
@@ -287,11 +297,19 @@ $eDeadline = $hasDeadline;
         <div class="s-eyebrow">Participants</div>
         <div class="text-2xl font-semibold mt-1 text-blue-400"><?= number_format($uniqueUsers) ?></div>
       </div>
+      <?php if ($isEntries && $draw['status'] === 'pending'): ?>
       <div class="s-card p-4 md:p-5">
-        <div class="s-eyebrow">Starts</div>
+        <div class="s-eyebrow">Queue</div>
+        <div class="text-sm font-semibold mt-2 text-purple-300"><?= $queuePos === 1 ? 'Next in line' : 'Queued #' . $queuePos ?></div>
+        <div class="text-xs text-slate-500">Starts automatically</div>
+      </div>
+      <?php else: ?>
+      <div class="s-card p-4 md:p-5">
+        <div class="s-eyebrow"><?= $isEntries ? 'Started' : 'Starts' ?></div>
         <div class="text-sm font-semibold mt-2"><?= date('M j, Y', $startTime) ?></div>
         <div class="text-xs text-slate-500"><?= date('g:i A', $startTime) ?></div>
       </div>
+      <?php endif; ?>
       <?php if ($hasDeadline): ?>
       <div class="s-card p-4 md:p-5">
         <div class="s-eyebrow"><?= $isEntries ? 'Deadline' : 'Ends' ?></div>
@@ -492,10 +510,18 @@ $eDeadline = $hasDeadline;
       </div>
 
       <div class="grid grid-cols-2 gap-4">
+        <?php if ($isEntries): ?>
+        <div>
+          <label class="s-label">Start</label>
+          <div class="s-input" style="opacity:.7"><?= $draw['status'] === 'pending' ? 'Starts automatically (queued)' : date('M j, Y g:i A', $startTime) ?></div>
+          <div class="s-hint">Entry draws start by themselves, in order. Not editable.</div>
+        </div>
+        <?php else: ?>
         <div>
           <label class="s-label">Start date &amp; time <span class="text-red-400">*</span></label>
           <input type="datetime-local" name="start_date" class="s-input" value="<?= e($old('start_date', date('Y-m-d\TH:i', $startTime))) ?>" required>
         </div>
+        <?php endif; ?>
         <div>
           <label class="s-label"><?= $isEntries ? 'Deadline (optional)' : 'End date &amp; time <span class="text-red-400">*</span>' ?></label>
           <input type="datetime-local" name="end_date" class="s-input"

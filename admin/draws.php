@@ -27,21 +27,35 @@ if (isPost() && verifyCsrf($_POST[CSRF_TOKEN_NAME] ?? '')) {
                 "INSERT INTO draws
                    (title,description,rules,prize_details,category,banner_image,
                     status,start_date,end_date,draw_type,target_entries,created_by)
-                 VALUES (?,?,?,?,?,?,'pending',?,?,?,?,?)"
+                 VALUES (?,?,?,?,?,?,'pending',COALESCE(?,NOW()),?,?,?,?)"
             )->execute([$v['title'],$v['desc'],$v['rules'],$v['prize'],$v['cat'],$banner,$v['start'],$v['end'],$type,$v['target'],$adminId]);
             $newId = (int)$db->lastInsertId();
             auditLog('admin',$adminId,'create_draw',"Draw '{$v['title']}' created ($type" . ($v['target'] ? ", target {$v['target']} entries" : '') . ")",'draw',$newId);
-            $msg = "Draw <strong>".e($v['title'])."</strong> created as Pending.";
+            if ($type === 'entries') {
+                // Entry draws run as a queue: starts right away if no other entry draw is running
+                $startedId = advanceEntryDrawQueue($db);
+                $msg = $startedId === $newId
+                    ? "Draw <strong>".e($v['title'])."</strong> created and <strong>started immediately</strong> (no other entry draw was running)."
+                    : "Draw <strong>".e($v['title'])."</strong> created and <strong>queued</strong>. It starts automatically when the entry draw before it completes.";
+            } else {
+                $msg = "Draw <strong>".e($v['title'])."</strong> created as Pending.";
+            }
         }
 
     // ── Activate ───────────────────────────────────────────
     } elseif ($action === 'activate' && $did) {
-        $db->prepare(
-            "UPDATE draws SET status='active',activated_by=?,activated_at=NOW(),updated_at=NOW()
-             WHERE id=? AND status='pending'"
-        )->execute([$adminId,$did]);
-        auditLog('admin',$adminId,'activate_draw',"Draw #$did manually activated",'draw',$did);
-        $msg = 'Draw activated. Users can now enter.';
+        $tp = $db->prepare("SELECT draw_type FROM draws WHERE id=?"); $tp->execute([$did]);
+        if ($tp->fetchColumn() === 'entries') {
+            // Entry draws are never started by hand or by date: the queue starts them in order
+            $err = 'Entry-triggered draws start automatically, one after another, in the order they were created.';
+        } else {
+            $db->prepare(
+                "UPDATE draws SET status='active',activated_by=?,activated_at=NOW(),updated_at=NOW()
+                 WHERE id=? AND status='pending'"
+            )->execute([$adminId,$did]);
+            auditLog('admin',$adminId,'activate_draw',"Draw #$did manually activated",'draw',$did);
+            $msg = 'Draw activated. Users can now enter.';
+        }
 
     // ── Delete (pending only) ──────────────────────────────
     } elseif ($action === 'delete' && $did) {
@@ -56,6 +70,10 @@ $autoEnded = sweepEntryTargetDraws($db);
 if ($autoEnded > 0 && !$msg) {
     $msg = "<strong>$autoEnded</strong> draw" . ($autoEnded > 1 ? 's' : '') . ' reached the entry target and ' . ($autoEnded > 1 ? 'are' : 'is') . ' waiting for you to select a winner.';
 }
+
+// ── Queue positions of pending entry draws (1 = next in line) ──
+$queuePos = []; $qi = 0;
+foreach ($db->query("SELECT id FROM draws WHERE draw_type='entries' AND status='pending' ORDER BY id ASC")->fetchAll(PDO::FETCH_COLUMN) as $qid) $queuePos[(int)$qid] = ++$qi;
 
 // ── Load draws list ────────────────────────────────────────
 $tab = $_GET['tab'] ?? 'all';
@@ -160,7 +178,7 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
         </div>
         <div class="rounded-xl bg-white/[0.03] border border-white/10 p-4">
           <div class="font-medium mb-1 flex items-center gap-2"><span class="text-purple-300"><?= ico('target') ?></span> Entry-triggered draw</div>
-          <p class="text-slate-400 text-xs leading-relaxed">You set a number of entries, for example 20. The moment the draw reaches it, it closes by itself and shows as <span class="text-orange-400 font-medium">Awaiting winner</span>. A deadline is optional.</p>
+          <p class="text-slate-400 text-xs leading-relaxed">You set a number of entries, for example 20. Entry draws run <strong class="text-slate-200">one after another</strong>: the first starts immediately, and each new one waits in line. The moment the running draw reaches its target it closes by itself (<span class="text-orange-400 font-medium">Awaiting winner</span>) and the next one starts automatically. No start date; a deadline is optional.</p>
         </div>
         <div class="md:col-span-2 text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="font-medium text-slate-300">Flow:</span>
@@ -234,7 +252,11 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
             <!-- Meta -->
             <div class="s-meta mb-3">
               <span class="s-meta-item"><?= ico('hash', 'w-3.5 h-3.5') ?> <?= number_format($ents) ?> entries</span>
-              <span class="s-meta-item"><?= ico('calendar', 'w-3.5 h-3.5') ?> Start: <?= date('M j, Y g:i A', strtotime($d['start_date'])) ?></span>
+              <?php if ($isEntries && $d['status'] === 'pending'): $qp = $queuePos[(int)$d['id']] ?? 0; ?>
+              <span class="s-meta-item text-purple-300"><?= ico('layers', 'w-3.5 h-3.5') ?> <?= $qp === 1 ? 'Next in line' : 'Queued #' . $qp ?> · starts automatically when the previous entry draw completes</span>
+              <?php else: ?>
+              <span class="s-meta-item"><?= ico('calendar', 'w-3.5 h-3.5') ?> <?= $isEntries ? 'Started' : 'Start' ?>: <?= date('M j, Y g:i A', strtotime($d['start_date'])) ?></span>
+              <?php endif; ?>
               <?php if ($deadline): ?>
               <span class="s-meta-item"><?= ico('clock', 'w-3.5 h-3.5') ?> <?= $isEntries ? 'Deadline' : 'End' ?>: <?= date('M j, Y g:i A', strtotime($d['end_date'])) ?></span>
               <?php elseif ($isEntries): ?>
@@ -272,15 +294,17 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
           <a href="<?= $detailUrl ?>" class="s-btn s-btn-sm s-btn-ghost"><?= ico('eye', 'w-3.5 h-3.5') ?> Details</a>
 
           <?php if ($d['status'] === 'pending'): ?>
+            <?php if (!$isEntries): ?>
             <form method="POST" class="inline" <?= confirmAttrs('Activate this draw?', '“'.$d['title'].'” will go live and users will be able to enter immediately.', 'Activate draw', 'success') ?>>
               <?= csrfField() ?><input type="hidden" name="action" value="activate"><input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
               <button class="s-btn s-btn-sm s-btn-success"><?= ico('play', 'w-3.5 h-3.5') ?> Activate</button>
             </form>
+            <?php endif; ?>
             <form method="POST" class="inline" <?= confirmAttrs('Delete this draw?', '“'.$d['title'].'” will be permanently deleted. This cannot be undone.', 'Delete permanently', 'danger') ?>>
               <?= csrfField() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="draw_id" value="<?= $d['id'] ?>">
               <button class="s-btn s-btn-sm s-btn-danger"><?= ico('trash', 'w-3.5 h-3.5') ?> Delete</button>
             </form>
-            <span class="text-xs text-slate-500 ml-auto hidden sm:inline">Edit this draw from Details</span>
+            <span class="text-xs text-slate-500 ml-auto hidden sm:inline"><?= $isEntries ? 'Starts automatically · edit from Details' : 'Edit this draw from Details' ?></span>
 
           <?php elseif ($d['status'] === 'active'): ?>
             <span class="text-xs text-slate-500 ml-auto hidden sm:inline">Edit, end or cancel from Details</span>
@@ -352,7 +376,7 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
         <div class="col-span-2 hidden" id="target-wrap">
           <label class="s-label">Entries needed to trigger the draw <span class="text-red-400">*</span></label>
           <input type="number" name="target_entries" id="target-input" class="s-input" min="2" max="<?= MAX_TARGET_ENTRIES ?>" step="1" placeholder="e.g. 20" value="<?= e($old('create','target_entries')) ?>">
-          <div class="s-hint">When the draw reaches this many entries it closes automatically and waits for you to select the winner.</div>
+          <div class="s-hint">When the draw reaches this many entries it closes automatically and waits for you to select the winner. Entry draws have no start date: the first one starts immediately, and each new one starts by itself when the one before it completes.</div>
         </div>
 
         <div>
@@ -366,9 +390,9 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
           <label class="s-label">Banner image</label>
           <input type="file" name="banner_image" class="s-input" accept="image/*">
         </div>
-        <div>
+        <div id="start-wrap">
           <label class="s-label">Start date &amp; time <span class="text-red-400">*</span></label>
-          <input type="datetime-local" name="start_date" class="s-input" value="<?= e($old('create','start_date')) ?>" required>
+          <input type="datetime-local" name="start_date" id="start-input" class="s-input" value="<?= e($old('create','start_date')) ?>" required>
           <div class="s-hint">Cron auto-activates at this time if still pending</div>
         </div>
         <div>
@@ -400,6 +424,8 @@ $tabMeta = ['pending'=>'#facc15','active'=>'#4ade80','ended'=>'#fb923c','complet
     document.getElementById('target-wrap').classList.toggle('hidden', !entries);
     document.getElementById('target-input').required = entries;
     document.getElementById('end-input').required = !entries;
+    document.getElementById('start-wrap').classList.toggle('hidden', entries);
+    document.getElementById('start-input').required = !entries;
     document.getElementById('end-star').classList.toggle('hidden', entries);
     document.getElementById('end-label').textContent = entries ? 'Deadline (optional)' : 'End date & time';
     document.getElementById('end-help').textContent  = entries

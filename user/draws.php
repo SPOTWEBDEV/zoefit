@@ -148,7 +148,11 @@ $tabs = [
               </div>
 
             <?php else: /* pending */ ?>
+              <?php if ($isEntries): ?>
+              <div class="s-meta-item text-sm text-slate-500"><?= ico('clock', 'w-4 h-4') ?> Opens automatically after the previous entry draw completes</div>
+              <?php else: ?>
               <div class="s-meta-item text-sm text-slate-500"><?= ico('calendar', 'w-4 h-4') ?> Starts <?= date('M j, Y g:ia', strtotime($d['start_date'])) ?></div>
+              <?php endif; ?>
               <?php if ($isEntries && $target > 0): ?>
               <div class="text-xs text-slate-500">Closes automatically at <?= number_format($target) ?> entries<?= $hasDeadline ? ', or at ' . date('M j, Y g:ia', strtotime($d['end_date'])) : '' ?>.</div>
               <?php elseif ($hasDeadline): ?>

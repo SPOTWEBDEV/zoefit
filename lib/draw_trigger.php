@@ -8,6 +8,15 @@
  *             (= "awaiting winner"), exactly like a draw the admin ended by hand, so the
  *             existing admin/select-winner.php flow picks it up unchanged.
  *
+ * ENTRY DRAWS RUN AS A QUEUE (one at a time, in the order they were created):
+ *   - They are NEVER started by their start date.
+ *   - When an entry draw is created and no other entry draw is running, it starts immediately.
+ *   - Otherwise it waits as 'pending'. The moment the running entry draw leaves 'active'
+ *     (target reached, ended or cancelled by an admin) the oldest pending entry draw is
+ *     activated automatically. Nobody has to select the winner of the previous draw first.
+ *   - start_date is only a reference: it is set to the real time the draw actually started.
+ *   See advanceEntryDrawQueue().
+ *
  * Entries are counted as rows in draw_entries for the draw (the same count admin/draws.php shows).
  *
  * WHERE TO CALL THESE: wherever a user's entry is inserted into draw_entries (your enter-draw
@@ -35,6 +44,47 @@ function drawEntryCount(PDO $db, int $drawId): int {
     $s = $db->prepare("SELECT COUNT(*) FROM draw_entries WHERE draw_id = ?");
     $s->execute([$drawId]);
     return (int) $s->fetchColumn();
+}
+
+/**
+ * ENTRY-DRAW QUEUE.
+ * If no entry-triggered draw is currently active, activates the OLDEST pending one (lowest id).
+ * Idempotent and cheap: safe to call after create / end / cancel, on page loads and from cron.
+ * The start_date is overwritten with the real start time (it is only a record, never a trigger).
+ *
+ * @return int|null id of the draw that was just started, or null if nothing was started
+ */
+function advanceEntryDrawQueue(PDO $db): ?int {
+    try {
+        // Named lock so two requests can never start two draws at once
+        $got = (int) $db->query("SELECT GET_LOCK('zf_entry_draw_queue', 5)")->fetchColumn();
+        if (!$got) return null;
+        try {
+            $running = (int) $db->query("SELECT COUNT(*) FROM draws WHERE draw_type = 'entries' AND status = 'active'")->fetchColumn();
+            if ($running > 0) return null;
+
+            $next = $db->query("SELECT id, title FROM draws WHERE draw_type = 'entries' AND status = 'pending' ORDER BY id ASC LIMIT 1")->fetch();
+            if (!$next) return null;
+
+            $u = $db->prepare("UPDATE draws SET status = 'active', start_date = NOW(), activated_at = NOW(), updated_at = NOW()
+                               WHERE id = ? AND status = 'pending'");
+            $u->execute([$next['id']]);
+            if ($u->rowCount() < 1) return null;
+
+            try {
+                auditLog('system', 0, 'queue_activate_draw',
+                    "Entry draw #{$next['id']} '{$next['title']}' started automatically (previous entry draw completed)", 'draw', (int)$next['id']);
+            } catch (\Throwable $e) {
+                error_log('[DRAW] audit failed: ' . $e->getMessage());
+            }
+            return (int) $next['id'];
+        } finally {
+            $db->query("SELECT RELEASE_LOCK('zf_entry_draw_queue')")->fetchColumn();
+        }
+    } catch (\Throwable $e) {
+        error_log('[DRAW] queue advance failed: ' . $e->getMessage());
+        return null;
+    }
 }
 
 /**
@@ -66,7 +116,8 @@ function reserveDrawEntrySlot(PDO $db, int $drawId, int $entries = 1): array {
 }
 
 /**
- * Call inside the same transaction AFTER inserting entries. Ends the draw if its target is now reached.
+ * Call inside the same transaction AFTER inserting entries. Ends the draw if its target is now reached,
+ * and immediately starts the next queued entry draw.
  * @return bool true if THIS call ended the draw
  */
 function finalizeDrawAfterEntry(PDO $db, int $drawId): bool {
@@ -86,25 +137,31 @@ function finalizeDrawAfterEntry(PDO $db, int $drawId): bool {
     } catch (\Throwable $e) {
         error_log('[DRAW] audit failed: ' . $e->getMessage());
     }
+
+    // This entry draw is done: start the next one in the queue straight away
+    advanceEntryDrawQueue($db);
     return true;
 }
 
 /**
  * Safety net: ends any active entry draw that already has >= target entries (e.g. entries added by a
- * path that doesn't call the helpers, or an admin lowering the target). Safe to run any time.
- * admin/draws.php runs it on every load; you can also call it from your cron.
+ * path that doesn't call the helpers, or an admin lowering the target), then makes sure the queue is
+ * moving (starts the next entry draw if none is running). Safe to run any time.
+ * admin/draws.php runs it on every load; the cron runs it every minute.
  * @return int number of draws ended
  */
 function sweepEntryTargetDraws(PDO $db): int {
+    $ended = 0;
     try {
         $u = $db->prepare("UPDATE draws d
             SET d.status = 'ended', d.ended_at = NOW(), d.ended_reason = 'target_reached', d.updated_at = NOW()
             WHERE d.status = 'active' AND d.draw_type = 'entries' AND d.target_entries IS NOT NULL
               AND (SELECT COUNT(*) FROM draw_entries e WHERE e.draw_id = d.id) >= d.target_entries");
         $u->execute();
-        return $u->rowCount();
+        $ended = $u->rowCount();
     } catch (\Throwable $e) {
         error_log('[DRAW] sweep failed: ' . $e->getMessage());
-        return 0;
     }
+    advanceEntryDrawQueue($db);   // idempotent: only starts something if no entry draw is running
+    return $ended;
 }

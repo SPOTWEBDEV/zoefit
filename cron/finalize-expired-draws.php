@@ -4,7 +4,9 @@
  * cron/finalize-expired-draws.php
  *
  * Runs every minute via cron.
- *   1. Auto-activates PENDING draws whose start_date has arrived
+ *   1. Auto-activates PENDING TIMED draws whose start_date has arrived.
+ *      Entry-triggered draws are NEVER started by date: they run as a queue (one at a time, in creation
+ *      order) and the next one starts the moment the running one ends. The cron keeps that queue moving.
  *   2. Entry-triggered draws: ends any ACTIVE draw that already reached its entry target
  *      (safety net: the enter-draw page normally ends them instantly) and emails the admins
  *   3. Auto-ends ACTIVE draws whose end_date has passed (status → 'ended').
@@ -129,7 +131,8 @@ try {
 $toActivate = $db->query(
     "SELECT id, title FROM draws
      WHERE status = 'pending'
-       AND start_date <= NOW()"
+       AND start_date <= NOW()
+       AND (draw_type IS NULL OR draw_type <> 'entries')"   // entry draws start through the queue, never by date
 )->fetchAll();
 
 foreach ($toActivate as $d) {
@@ -156,7 +159,7 @@ foreach ($toActivate as $d) {
 }
 
 if ($activated === 0 && empty($toActivate)) {
-    cronLog('  → No pending draws to activate.');
+    cronLog('  → No pending timed draws to activate.');
 }
 
 
@@ -174,6 +177,21 @@ if ($targetEnded > 0) {
     $line = "ENDED {$targetEnded} entry-triggered draw(s) that reached their target";
     cronLog("  → $line");
     $logLines[] = $line;
+}
+
+// Keep the entry-draw queue moving: if no entry draw is running, start the next queued one.
+// (sweepEntryTargetDraws() above already does this; the explicit call makes the log clear.)
+$queued = advanceEntryDrawQueue($db);
+if ($queued) {
+    $activated++;
+    $line = "STARTED queued entry draw #{$queued}";
+    cronLog("  → $line");
+    $logLines[] = $line;
+    $qd = $db->prepare("SELECT id, title FROM draws WHERE id = ?");
+    $qd->execute([$queued]);
+    if ($row = $qd->fetch()) {
+        try { _notifyAdminsDrawActivated($db, $row); } catch (\Throwable $e) { cronLog('  WARNING: email failed — ' . $e->getMessage()); }
+    }
 }
 
 // Email the admins once for every entry-triggered draw that ended on its target and still waits for a winner
