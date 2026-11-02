@@ -215,19 +215,33 @@ unset($_SESSION['flash_type'], $_SESSION['flash_msg']);
               <?php endif; ?>
 
               <?php if ($isEntries && $target > 0): ?>
-              <div>
-                <div class="flex items-center justify-between text-xs mb-1.5">
-                  <span class="font-medium hidden <?= $reached ? 'text-green-400' : 'text-slate-300' ?>"><?= number_format($total) ?> / <?= number_format($target) ?> entries</span>
-                  <span class="<?= $reached ? 'text-green-400' : 'text-slate-500' ?>"><?= $reached ? 'Target reached' : $pct . '%' ?></span>
-                </div>
-                <div class="s-progress"><div class="<?= $reached ? 'done' : '' ?>" style="width:<?= $pct ?>%"></div></div>
-                <?php if (!$reached): ?>
-                <div class="text-[11.5px] hidden text-slate-500 mt-1.5">Closes after <?= number_format($left) ?> more <?= $left === 1 ? 'entry' : 'entries' ?><?= $hasDeadline ? ', or at the deadline' : '' ?>.</div>
-                <?php endif; ?>
-              </div>
-              <?php elseif (!$hasDeadline): ?>
-              <div class="text-xs text-slate-500">No end date</div>
-              <?php endif; ?>
+<div>
+    <div class="flex items-center justify-between text-xs mb-1.5">
+        <span class="font-medium <?= $reached ? 'text-green-400' : 'text-slate-300' ?>">
+            <?= $pct ?>% / 100%
+        </span>
+
+        <span class="<?= $reached ? 'text-green-400' : 'text-slate-500' ?>">
+            <?= $reached ? 'Target reached' : 'In progress' ?>
+        </span>
+    </div>
+
+    <div class="s-progress">
+        <div class="<?= $reached ? 'done' : '' ?>"
+             style="width:<?= $pct ?>%">
+        </div>
+    </div>
+
+    <?php if (!$reached): ?>
+    <div class="text-[11.5px] text-slate-500 mt-1.5">
+        Closes after <?= 100 - $pct ?>% more.
+        <?= $hasDeadline ? 'Or at the deadline.' : '' ?>
+    </div>
+    <?php endif; ?>
+</div>
+<?php elseif (!$hasDeadline): ?>
+<div class="text-xs text-slate-500">No end date</div>
+<?php endif; ?>
             </div>
 
             <a href="<?= $enterUrl ?>" class="s-btn s-btn-primary w-full py-2.5">Enter draw →</a>
