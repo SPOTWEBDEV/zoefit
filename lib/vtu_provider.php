@@ -1,24 +1,4 @@
 <?php
-/**
- * VTU (airtime/data) provider integration — InstantMobile
- * Docs: https://instantmobile.com.ng/api-docs.php
- *
- * Config required (config/config.php or .env):
- *   INSTANTMOBILE_API_KEY   = your API key (Profile > API, needs the API plan)
- *   INSTANTMOBILE_BASE_URL  = optional, defaults to https://instantmobile.com.ng/api/v1.php
- * Pricing is NOT config: admins set the airtime fee and the data profit at admin/pricing.php
- *   (stored in site_settings, see lib/settings.php).
- *
- * Every dispatch function returns:
- *   success            bool    delivered, confirmed by provider
- *   pending            bool    OUTCOME UNKNOWN (timeout / 5xx / garbled reply). Do NOT refund,
- *                              do NOT retry. Leave the order 'pending' and reconcile manually.
- *   message            string  safe to show to the user
- *   provider, provider_reference, raw
- *
- * success=false AND pending=false means the provider definitely did not deliver -> safe to refund.
- */
-
 require_once __DIR__ . '/../config/config.php';
 
 if (!defined('INSTANTMOBILE_BASE_URL')) define('INSTANTMOBILE_BASE_URL', 'https://instantmobile.com.ng/api/v1.php');
@@ -224,8 +204,9 @@ function imFetchPlans(): array {
 }
 
 /** What the USER pays for a data plan, in kobo: provider price + the flat data profit, rounded up to a whole naira. */
-function imSellingPriceKobo(float $costNaira): int {
-    return (int) ceil($costNaira + getDataProfitNaira()) * 100;
+/** What the USER pays for a data plan, in kobo: provider price + gain (per-plan, or the default), rounded up to a whole naira. */
+function imSellingPriceKobo(float $costNaira, ?float $gainNaira = null): int {
+    return (int) ceil($costNaira + ($gainNaira ?? getDataProfitNaira())) * 100;
 }
 
 function getDataPlans(): array {
@@ -250,16 +231,22 @@ function getDataPlans(): array {
     }
     if (!is_array($cost)) return [];
 
+        $overrides = dataPlanOverrides();
     $plans = [];
     foreach ($cost as $network => $list) {
         foreach ($list as $p) {
+            $ov      = $overrides[$network][(string) $p['code']] ?? null;
+            $gain    = ($ov && $ov['gain'] !== null) ? (float) $ov['gain'] : null;   // null = default profit
+            $price   = imSellingPriceKobo((float) $p['cost'], $gain);
+            $costKb  = (int) round(((float) $p['cost']) * 100);
             $plans[$network][] = [
-                'code'  => $p['code'],
-                'name'  => $p['name'],
-                'type'  => $p['type'] ?? '',
-                'price'  => imSellingPriceKobo((float) $p['cost']),  // what the USER pays (cost + profit), kobo
-                'cost'   => (int) round(((float) $p['cost']) * 100),    // what YOU pay the provider, kobo
-                'profit' => imSellingPriceKobo((float) $p['cost']) - (int) round(((float) $p['cost']) * 100),
+                'code'    => $p['code'],
+                'name'    => $p['name'],
+                'type'    => $p['type'] ?? '',
+                'price'   => $price,                 // what the USER pays, kobo
+                'cost'    => $costKb,                // what YOU pay the provider, kobo
+                'profit'  => $price - $costKb,       // your real gain, kobo
+                'tickets' => $ov ? (int) $ov['tickets'] : dataPlanDefaultTickets($price),
             ];
         }
         usort($plans[$network], fn($a, $b) => $a['price'] <=> $b['price']);

@@ -100,7 +100,7 @@ if (isPost()) {
                             createNotification($userId, 'Data Purchase Successful', $plan['name'] . ' sent to ' . formatPhone($normalizedPhone) . '.', 'success');
                             auditLog('user', $userId, 'data_purchase_success', "Data {$plan['code']} to {$normalizedPhone}, ref {$reference}", 'order', $orderId);
 
-                            $rewardCodes = grantPurchaseReward($db, $userId, $orderId, $amountKobo);
+                            $rewardCodes = grantPurchaseReward($db, $userId, $orderId, $amountKobo, (int) ($plan['tickets'] ?? 0));
 
                             $success = 'Data purchase successful! ' . $plan['name'] . ' sent to ' . formatPhone($normalizedPhone) . '.'
                                      . ($rewardCodes ? " 🎟️ You earned {$rewardCodes} free raffle code" . ($rewardCodes > 1 ? 's' : '') . '!' : '');
@@ -151,7 +151,7 @@ if (isPost()) {
 }
 
 
-$rewardProgressKobo = getRewardProgressKobo($db, $userId);
+
 
 // ── Plans for the page. Only what the UI needs: NEVER send provider cost or profit to the browser. ──
 $plansForJs = [];
@@ -163,7 +163,8 @@ foreach ($allPlans as $net => $list) {
             'net'    => $net,
             'name'   => (string) $p['name'],
             'type'   => (string) ($p['type'] ?? ''),
-            'price'  => (int) $p['price'],            // kobo, what the user pays
+            'price'  => (int) $p['price'],              // kobo, what the user pays
+            'tickets' => (int) ($p['tickets'] ?? 0),   // raffle tickets this plan gives (set by admin)
             'size'   => $meta['size'],
             'unit'   => $meta['unit'],
             'sizeGb' => $meta['sizeGb'],
@@ -195,8 +196,6 @@ $jsConfig = [
     'plans'      => $plansForJs,
     'networks'   => array_map(fn($k) => ['label' => $networks[$k], 'color' => $networkColors[$k]], array_combine(array_keys($networks), array_keys($networks))),
     'balance'    => $walletBalance,
-    'rewardUnit' => rewardUnitKobo(),
-    'progress'   => $rewardProgressKobo,
     'depositUrl' => APP_URL . '/user/deposit.php',
     'initial'    => ['network' => $networkInput, 'phone' => $initialPhone, 'plan' => $planInput, 'hadError' => (bool) $errors],
 ];
@@ -246,7 +245,7 @@ function dataPlanMeta(array $p): array {
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="csrf-token" content="<?= generateCsrf() ?>">
   <title><?= e($pageTitle) ?> — <?= APP_NAME ?></title>
   <script src="<?= APP_URL ?>/assets/js/tailwind.js"></script>
@@ -299,6 +298,21 @@ function dataPlanMeta(array $p): array {
     }
     @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
     .shake { animation: shake .3s; }
+
+    /* ── Mobile ── */
+    html { -webkit-text-size-adjust: 100%; }
+    .tile, .tab, .net-opt, .recent-phone, .quick-amt, button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .phone-in { font-size: clamp(1.05rem, 5.4vw, 1.3rem); }              /* 16px+ so iOS never zooms on focus */
+    .sheet-panel { max-height: 92vh; max-height: 92dvh; overscroll-behavior: contain; }
+    @media (max-width: 359px) {
+      .plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* very small phones: 2 per row */
+    }
+    @media (max-width: 767px) {
+      .tile { min-height: 7.4rem; }
+      .tile .size { font-size: clamp(1.1rem, 5.2vw, 1.35rem); }
+      .sheet-panel { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
+      .sheet-panel #pay-btn { position: sticky; bottom: 0; }
+    }
   </style>
 </head>
 <body class="bg-[#0a0f1a] text-white font-sans">
@@ -309,10 +323,10 @@ function dataPlanMeta(array $p): array {
   <div class="topbar">
     <button onclick="toggleSidebar()" class="md:hidden text-gray-400 hover:text-white text-2xl mr-3">☰</button>
     <h1 class="text-lg font-bold">Mobile Data</h1>
-    <a href="#history" class="ml-auto text-sm font-semibold text-orange-400 hover:text-orange-300">History</a>
+    <a href="#history" class="ml-auto text-sm font-semibold text-orange-400 hover:text-orange-300 py-2 pl-3">History</a>
   </div>
 
-  <div class="p-4 md:p-6 max-w-xl mx-auto space-y-4">
+  <div class="px-3 py-4 sm:p-4 md:p-6 max-w-xl mx-auto space-y-4">
 
     <!-- Alerts -->
     <?php if ($errors): ?>
@@ -340,7 +354,7 @@ function dataPlanMeta(array $p): array {
       <div class="relative flex items-center justify-between gap-4">
         <div>
           <div class="text-lg font-extrabold leading-tight">Buy data.<br><span class="text-orange-400">Win big.</span></div>
-          <div class="text-xs text-gray-300 mt-2">Every ₦<?= number_format(getRewardNairaPerCode()) ?> you spend = 1 free raffle code</div>
+          <div class="text-xs text-gray-300 mt-2">Every bundle earns you free raffle tickets</div>
         </div>
         <div class="text-5xl flex-shrink-0">🎟️</div>
       </div>
@@ -348,13 +362,13 @@ function dataPlanMeta(array $p): array {
 
     <!-- Network + number -->
     <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="relative">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="relative flex-shrink-0">
           <button type="button" id="net-btn" class="flex items-center gap-1.5" aria-label="Choose network" aria-haspopup="listbox">
             <span id="net-badge" class="w-11 h-11 rounded-full flex items-center justify-center text-[11px] font-extrabold text-black" style="background:#FFCC00">MTN</span>
             <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
           </button>
-          <div id="net-menu" class="hidden absolute left-0 top-14 z-20 w-44 rounded-2xl border border-white/10 bg-[#111827] shadow-2xl p-1.5" role="listbox">
+          <div id="net-menu" class="hidden absolute left-0 top-14 z-20 w-44 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-[#111827] shadow-2xl p-1.5" role="listbox">
             <?php foreach ($networks as $key => $label): ?>
               <button type="button" data-net="<?= e($key) ?>" class="net-opt w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-sm font-medium text-left" role="option">
                 <span class="w-3 h-3 rounded-full" style="background:<?= e($networkColors[$key]) ?>"></span><?= e($label) ?>
@@ -364,7 +378,7 @@ function dataPlanMeta(array $p): array {
         </div>
         <div class="w-px h-8 bg-white/10"></div>
         <input type="tel" id="phone-display" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="080 1234 5678"
-               class="flex-1 min-w-0 bg-transparent text-xl font-bold tracking-wide placeholder:text-gray-600 focus:outline-none" aria-label="Phone number">
+               class="phone-in flex-1 min-w-0 bg-transparent font-bold tracking-wide placeholder:text-gray-600 focus:outline-none" aria-label="Phone number">
         <button type="button" id="contact-btn" title="Pick from contacts" aria-label="Pick from contacts"
                 class="w-11 h-11 rounded-full bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 flex items-center justify-center flex-shrink-0 transition">
           <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z"/></svg>
@@ -377,7 +391,7 @@ function dataPlanMeta(array $p): array {
         <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Recent numbers</div>
         <div class="flex flex-wrap gap-2">
           <?php foreach ($recentPhones as $rp): ?>
-            <button type="button" data-phone="<?= e($rp) ?>" class="recent-phone px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium"><?= e(substr($rp, 0, 4) . ' ' . substr($rp, 4, 3) . ' ' . substr($rp, 7)) ?></button>
+            <button type="button" data-phone="<?= e($rp) ?>" class="recent-phone px-3.5 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium"><?= e(substr($rp, 0, 4) . ' ' . substr($rp, 4, 3) . ' ' . substr($rp, 7)) ?></button>
           <?php endforeach; ?>
         </div>
       </div>
@@ -389,10 +403,10 @@ function dataPlanMeta(array $p): array {
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-extrabold">Data Plans</h2>
         <div class="flex items-center gap-1" role="group" aria-label="View">
-          <button type="button" id="view-grid" class="w-9 h-9 rounded-lg flex items-center justify-center text-orange-400" aria-label="Grid view">
+          <button type="button" id="view-grid" class="w-11 h-11 rounded-lg flex items-center justify-center text-orange-400" aria-label="Grid view">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z"/></svg>
           </button>
-          <button type="button" id="view-list" class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500" aria-label="List view">
+          <button type="button" id="view-list" class="w-11 h-11 rounded-lg flex items-center justify-center text-gray-500" aria-label="List view">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 5h16v3H4zM4 10.5h16v3H4zM4 16h16v3H4z"/></svg>
           </button>
         </div>
@@ -421,7 +435,7 @@ function dataPlanMeta(array $p): array {
               default     => 'badge-danger',
             };
           ?>
-          <div class="flex items-center gap-3 px-4 py-3.5 border-b border-white/5 last:border-0">
+          <div class="flex items-center gap-3 px-3 sm:px-4 py-3.5 border-b border-white/5 last:border-0">
             <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01M4.929 12.9a10.5 10.5 0 0114.142 0M1.5 9.75a15 15 0 0121 0"/></svg>
             </div>
@@ -460,7 +474,7 @@ function dataPlanMeta(array $p): array {
     <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <div class="flex items-center justify-between mb-4">
         <h3 id="sheet-title" class="text-lg font-extrabold">Confirm purchase</h3>
-        <button type="button" id="sheet-close" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-lg leading-none" aria-label="Close">×</button>
+        <button type="button" id="sheet-close" class="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 text-xl leading-none" aria-label="Close">×</button>
       </div>
 
       <div class="text-center py-3 mb-4 rounded-2xl bg-white/[0.04] border border-white/10">
@@ -478,7 +492,7 @@ function dataPlanMeta(array $p): array {
 
       <div class="rounded-xl p-3.5 mb-4 border border-orange-400/25 bg-orange-500/10">
         <div class="text-sm" id="sh-reward">🎟️</div>
-        <div class="h-1.5 rounded-full bg-white/10 overflow-hidden mt-2.5"><div id="sh-bar" class="h-full bg-orange-400 rounded-full transition-all" style="width:0%"></div></div>
+        <!-- <div class="h-1.5 rounded-full bg-white/10 overflow-hidden mt-2.5"><div id="sh-bar" class="h-full bg-orange-400 rounded-full transition-all" style="width:0%"></div></div> -->
       </div>
 
       <div id="sh-low" class="hidden text-sm text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 mb-4">
@@ -494,11 +508,11 @@ function dataPlanMeta(array $p): array {
 </form>
 
 <script>window.APP_URL = '<?= APP_URL ?>';</script>
-<script>window.ZF = <?= json_encode($jsConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;</script>
+<script>window.ZF_DATA = <?= json_encode($jsConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;</script>
 <script src="<?= APP_URL ?>/assets/js/app.js"></script>
 <script>
 (function () {
-  const Z = window.ZF;
+  const Z = window.ZF_DATA;   // NOT window.ZF: assets/js/app.js defines window.ZF (the AJAX helper)
   const $ = (s, r = document) => r.querySelector(s);
   const fmtN = (n) => '₦' + Number(n).toLocaleString('en-NG');
   const fmtK = (k) => fmtN(k / 100);
@@ -604,7 +618,7 @@ function dataPlanMeta(array $p): array {
     list.forEach(p => {
       const t = document.createElement('button');
       t.type = 'button'; t.className = 'tile' + (p.id === state.selected ? ' selected' : '');
-      const codes = Math.floor(p.price / Z.rewardUnit);
+      const codes = p.tickets || 0;
 
       const main = document.createElement('div'); main.className = 'main';
       if (p.size) {
@@ -628,8 +642,8 @@ function dataPlanMeta(array $p): array {
   function setView(v) {
     state.view = v;
     try { localStorage.setItem('zf_plan_view', v); } catch (e) {}
-    $('#view-grid').className = 'w-9 h-9 rounded-lg flex items-center justify-center ' + (v === 'grid' ? 'text-orange-400' : 'text-gray-500');
-    $('#view-list').className = 'w-9 h-9 rounded-lg flex items-center justify-center ' + (v === 'list' ? 'text-orange-400' : 'text-gray-500');
+    $('#view-grid').className = 'w-11 h-11 rounded-lg flex items-center justify-center ' + (v === 'grid' ? 'text-orange-400' : 'text-gray-500');
+    $('#view-list').className = 'w-11 h-11 rounded-lg flex items-center justify-center ' + (v === 'list' ? 'text-orange-400' : 'text-gray-500');
     renderPlans();
   }
   $('#view-grid').addEventListener('click', () => setView('grid'));
@@ -666,11 +680,10 @@ function dataPlanMeta(array $p): array {
     $('#sh-low').classList.toggle('hidden', !low);
     $('#sh-deposit').href = Z.depositUrl;
 
-    const total = Z.progress + p.price, codes = Math.floor(total / Z.rewardUnit), rest = total - codes * Z.rewardUnit;
+    const codes = p.tickets || 0;
     $('#sh-reward').innerHTML = codes > 0
-      ? "🎟️ You'll earn <strong class=\"text-orange-300\">" + codes + ' free raffle code' + (codes > 1 ? 's' : '') + '</strong> with this purchase.'
-      : '🎟️ Spend ' + fmtK(Z.rewardUnit - rest) + ' more to earn your next free code.';
-    $('#sh-bar').style.width = Math.min(100, rest / Z.rewardUnit * 100) + '%';
+      ? "🎟️ You'll earn <strong class=\"text-orange-300\">" + codes + ' free raffle ticket' + (codes > 1 ? 's' : '') + '</strong> with this purchase.'
+      : '🎟️ This bundle does not earn raffle tickets.';
 
     $('#f-phone').value = state.phone;
     $('#f-plan').value = p.id;
