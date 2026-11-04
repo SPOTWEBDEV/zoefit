@@ -5,7 +5,7 @@ if (!defined('INSTANTMOBILE_BASE_URL')) define('INSTANTMOBILE_BASE_URL', 'https:
 // Airtime fee and data profit live in the database, edited at admin/pricing.php (see lib/settings.php).
 require_once __DIR__ . '/settings.php';
 
-define('IM_PLANS_CACHE_FILE', __DIR__ . '/../storage/cache/instantmobile_data_plans.json');
+define('IM_PLANS_CACHE_FILE', __DIR__ . '/../storage/cache/instantmobile_data_plans_v2.json');
 define('IM_PLANS_CACHE_TTL', 15 * 60); // plan IDs can change, so keep this short
 
 // -----------------------------------------------------------
@@ -198,12 +198,12 @@ function imFetchPlans(): array {
             'name' => (string) $item['name'],
             'type' => (string) ($item['type'] ?? ''),
             'cost' => (float) $item['price'],
+            'extra' => array_diff_key($item, array_flip(['id', 'network', 'name', 'type', 'price'])),   // e.g. validity / duration, if the provider sends it
         ];
     }
     return $plans;
 }
 
-/** What the USER pays for a data plan, in kobo: provider price + the flat data profit, rounded up to a whole naira. */
 /** What the USER pays for a data plan, in kobo: provider price + gain (per-plan, or the default), rounded up to a whole naira. */
 function imSellingPriceKobo(float $costNaira, ?float $gainNaira = null): int {
     return (int) ceil($costNaira + ($gainNaira ?? getDataProfitNaira())) * 100;
@@ -243,6 +243,7 @@ function getDataPlans(): array {
                 'code'    => $p['code'],
                 'name'    => $p['name'],
                 'type'    => $p['type'] ?? '',
+                'extra'   => $p['extra'] ?? [],
                 'price'   => $price,                 // what the USER pays, kobo
                 'cost'    => $costKb,                // what YOU pay the provider, kobo
                 'profit'  => $price - $costKb,       // your real gain, kobo
