@@ -15,6 +15,9 @@ $user = $stmt->fetch();
 
 $walletBalance = (int) ($user['wallet_balance'] ?? 0);
 
+// Plans whose name/type carry NO duration at all: show this many days (0 = show nothing). Set to 30 if the provider's plain "SME" plans are monthly.
+if (!defined('DATA_DEFAULT_VALIDITY_DAYS')) define('DATA_DEFAULT_VALIDITY_DAYS', 0);
+
 $networks = ['mtn' => 'MTN', 'glo' => 'Glo', 'airtel' => 'Airtel', '9mobile' => '9mobile'];
 $networkColors = ['mtn' => '#FFCC00', 'glo' => '#2FB34A', 'airtel' => '#E4002B', '9mobile' => '#8DC63F'];
 $allPlans = getDataPlans();
@@ -161,8 +164,7 @@ foreach ($allPlans as $net => $list) {
         $plansForJs[] = [
             'id'     => (string) $p['code'],
             'net'    => $net,
-            'name'   => (string) $p['name'],
-            'type'   => (string) ($p['type'] ?? ''),
+            'name'   => planDisplayName((string) $p['name']),   // no network / SME / Corporate Gifting words
             'price'  => (int) $p['price'],              // kobo, what the user pays
             'tickets' => (int) ($p['tickets'] ?? 0),   // raffle tickets this plan gives (set by admin)
             'size'   => $meta['size'],
@@ -203,14 +205,44 @@ $jsConfig = [
 $currentPage = 'data';
 $pageTitle   = 'Mobile Data';
 
+/** Plan name for customers: drops the network and the plan type (SME, Corporate Gifting, CG ...). */
+function planDisplayName(string $name): string {
+    $n = preg_replace('/\b(MTN|GLO|AIRTEL|9\s*MOBILE|ETISALAT)\b/i', ' ', $name);
+    $n = preg_replace('/\b(SME\d*|SMS|CG|Corporate\s*Gifting|Corporate|Gifting|Direct\s*Data)\b/i', ' ', $n);
+    $n = trim(preg_replace('/\s+/', ' ', $n), " -–—_/,.");
+    return $n !== '' ? $n : $name;
+}
+
+/** A lone number in the plan name = days: "MTN 1GB 30", "MTN 1GB Pro 7", "MTN 2GB 2 SME". Null when there is none. */
+function planBareDays(string $name): ?int {
+    $name = trim($name);
+    $n = null;
+    if (preg_match('/\s(\d{1,3})$/', $name, $m)) {                                     // number is the last word
+        $n = (int) $m[1];
+    } elseif (preg_match('/(?:TB|GB|MB|G)\b[^0-9]*?\s(\d{1,3})(?![0-9A-Za-z.])/i', $name, $m)) {   // number comes after the size, maybe after other words
+        $n = (int) $m[1];
+    }
+    return ($n !== null && $n >= 1 && $n <= 365) ? $n : null;
+}
+
 /** Pull size / validity / category out of a provider plan name so the UI can draw tiles. */
 function dataPlanMeta(array $p): array {
     $t = trim(($p['name'] ?? '') . ' ' . ($p['type'] ?? ''));
 
+    // A separate duration field from the provider (validity / duration / days / period ...). A bare number means days.
+    foreach ((array) ($p['extra'] ?? []) as $k => $v) {
+        if (is_scalar($v) && preg_match('/valid|duration|day|period|expir|life/i', (string) $k) && trim((string) $v) !== '') {
+            $v = trim((string) $v);
+            $t .= ' ' . (preg_match('/^\d{1,3}$/', $v) ? $v . ' days' : $v);
+            break;
+        }
+    }
+
     $size = null; $unit = null; $sizeGb = null;
-    if (preg_match('/(\d+(?:[.,]\d+)?)\s*(TB|GB|MB)(?![A-Za-z])/i', $t, $m)) {
+    if (preg_match('/(\d+(?:[.,]\d+)?)\s*(TB|GB|MB|G)(?![A-Za-z])/i', $t, $m)) {
         $size = (float) str_replace(',', '.', $m[1]);
         $unit = strtoupper($m[2]);
+        if ($unit === 'G') $unit = 'GB';
         $sizeGb = $unit === 'TB' ? $size * 1024 : ($unit === 'GB' ? $size : $size / 1024);
     }
 
@@ -226,10 +258,30 @@ function dataPlanMeta(array $p): array {
         $days = (int) $m[1] * 7; $vlabel = $plural((int) $m[1], 'Week', 'Weeks');
     } elseif (preg_match('/(\d+)\s*[- ]?\s*months?(?![A-Za-z])/i', $t, $m)) {
         $days = (int) $m[1] * 30; $vlabel = $plural((int) $m[1], 'Month', 'Months');
-    } elseif (preg_match('/\bdaily\b/i', $t))   { $days = 1;   $vlabel = '1 Day'; }
+    } elseif ($size !== null && ($bare = planBareDays((string) ($p['name'] ?? ''))) !== null) {
+        $days = $bare; $vlabel = $plural($days, 'Day', 'Days');             // "MTN 1GB 7", "MTN 1GB Pro 30" = days
+    } elseif (preg_match('/\b(?:a|one)\s+day\b/i', $t))   { $days = 1;  $vlabel = '1 Day'; }
+      elseif (preg_match('/\b(?:a|one)\s+week\b/i', $t))  { $days = 7;  $vlabel = '1 Week'; }
+      elseif (preg_match('/\b(?:a|one)\s+month\b/i', $t)) { $days = 30; $vlabel = '1 Month'; }
+      elseif (preg_match('/\bdaily\b/i', $t))   { $days = 1;   $vlabel = '1 Day'; }
       elseif (preg_match('/\bweekly\b/i', $t))  { $days = 7;   $vlabel = '7 Days'; }
       elseif (preg_match('/\bmonthly\b/i', $t)) { $days = 30;  $vlabel = '30 Days'; }
       elseif (preg_match('/\b(yearly|annual)\b/i', $t)) { $days = 365; $vlabel = '1 Year'; }
+
+    // No duration in the name or in a duration field: fall back to what the plan TYPE means.
+    // (An explicit "7 Days" / "30" in the name or provider data always wins over this.)
+    if ($days === null) {
+        $typeDays = [
+            '/\bweekly\b/i' => 7,    // type "weekly" = 7 days (SME and Corporate Gifting say nothing about duration)
+        ];
+        foreach ($typeDays as $re => $d) {
+            if (preg_match($re, (string) ($p['type'] ?? ''))) { $days = $d; $vlabel = $plural($d, 'Day', 'Days'); break; }
+        }
+    }
+
+    if ($days === null && (int) DATA_DEFAULT_VALIDITY_DAYS > 0) {
+        $days = (int) DATA_DEFAULT_VALIDITY_DAYS; $vlabel = $plural($days, 'Day', 'Days');
+    }
 
     if (preg_match('/night|midnight|weekend/i', $t))   $cat = 'night';
     elseif ($days === null)                            $cat = 'other';
@@ -267,7 +319,7 @@ function dataPlanMeta(array $p): array {
     .tile .size { font-size: 1.35rem; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
     .tile .size small { font-size: .7rem; font-weight: 700; margin-left: 1px; }
     .tile .nm { font-size: .78rem; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-    .tile .vl { font-size: .8rem; color: #9ca3af; }
+    .tile .vl { font-size: .74rem; font-weight: 700; color: #e5e7eb; background: rgba(255,255,255,.09); border-radius: 999px; padding: .12rem .6rem; white-space: nowrap; }
     .tile .pr { font-size: .8rem; color: #d1d5db; font-weight: 600; }
     .tile .rw { font-size: .7rem; font-weight: 600; color: #34d399; }
     .tile .tag { font-size: .62rem; font-weight: 600; color: #fbbf24; background: rgba(251,191,36,.12); border-radius: .4rem; padding: .1rem .45rem; }
@@ -440,7 +492,7 @@ function dataPlanMeta(array $p): array {
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01M4.929 12.9a10.5 10.5 0 0114.142 0M1.5 9.75a15 15 0 0121 0"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate"><?= e(strtoupper($o['network'])) ?> · <?= e($o['plan_name']) ?></div>
+              <div class="text-sm font-medium truncate"><?= e(strtoupper($o['network'])) ?> · <?= e(planDisplayName((string) $o['plan_name'])) ?></div>
               <div class="text-xs text-gray-500 truncate"><?= e(formatPhone($o['phone'])) ?> · <?= e(date('M j, g:i A', strtotime($o['created_at']))) ?></div>
               <div class="text-[11px] text-gray-600 font-mono truncate"><?= e($o['reference']) ?></div>
             </div>
@@ -631,10 +683,9 @@ function dataPlanMeta(array $p): array {
 
       const side = document.createElement('div'); side.className = 'side';
       const pr = document.createElement('div'); pr.className = 'pr'; pr.textContent = fmtK(p.price); side.appendChild(pr);
-      if (codes > 0) { const r = document.createElement('div'); r.className = 'rw'; r.textContent = '🎟️ ' + codes + (codes > 1 ? ' codes' : ' code'); side.appendChild(r); }
+      if (codes > 0) { const r = document.createElement('div'); r.className = 'rw'; r.textContent = 'with free ' + codes + (codes > 1 ? ' raffle ticket' : ' code'); side.appendChild(r); }
 
       t.appendChild(main); t.appendChild(side);
-      if (p.type) { const g = document.createElement('div'); g.className = 'tag'; g.textContent = p.type; t.appendChild(g); }
       t.addEventListener('click', () => choose(p));
       grid.appendChild(t);
     });
@@ -668,7 +719,7 @@ function dataPlanMeta(array $p): array {
     state.selected = p.id; renderPlans();
 
     $('#sh-size').textContent = p.size ? sizeText(p.size) + ' ' + p.unit : p.name;
-    $('#sh-validity').textContent = [p.vlabel, p.type].filter(Boolean).join(' · ');
+    $('#sh-validity').textContent = p.vlabel ? 'Valid for ' + p.vlabel : '';
     $('#sh-price').textContent = fmtK(p.price);
     $('#sh-net').textContent = Z.networks[state.net].label;
     $('#sh-phone').textContent = fmtPhone(state.phone);
